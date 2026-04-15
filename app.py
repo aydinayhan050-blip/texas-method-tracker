@@ -284,10 +284,19 @@ if st.session_state.cycles:
                                 
                                 st.divider()
                                 if "Friday" not in d_name:
+                                    # Monday / Wednesday logic
                                     if not is_done and st.button(f"Mark {d_name} Finished", key=f"btn_v2_{d_key}", use_container_width=True):
                                         cycle['day_completed_log'][d_key] = True; save_data(); st.rerun()
                                     elif is_done: st.success(f"✅ {d_name} Finished!")
+                                    
+                                    # Special check for Power Clean on Monday Standard variant
+                                    if "Monday" in d_name and cycle.get("variant") == "Standard (Power Clean)":
+                                        st.write("---")
+                                        pc_key = f"pc_success_{t_idx}_{w_i}"
+                                        cycle['success_log']["Power Clean"][w_i] = st.checkbox("⚡ Crushed Power Clean (Mon)", value=cycle['success_log']["Power Clean"][w_i], key=pc_key)
+
                                 else:
+                                    # Friday logic
                                     st.subheader("🏆 Friday Checklist")
                                     st.caption("ℹ️ **How it works:** Check the lifts you successfully completed. Leave the ones you missed unchecked. Successful lifts will increase by your set increment next week; missed lifts will stay at the same weight.")
                                     cc = st.columns(len(moves))
@@ -295,10 +304,6 @@ if st.session_state.cycles:
                                         with cc[mi]:
                                             cb_key = f"success_chk_{t_idx}_{w_i}_{mv}"
                                             cycle['success_log'][mv][w_i] = st.checkbox(f"Crushed {mv}", value=cycle['success_log'][mv][w_i], key=cb_key)
-                                    
-                                    if cycle.get("variant") == "Standard (Power Clean)":
-                                        pc_key = f"pc_success_{t_idx}_{w_i}"
-                                        cycle['success_log']["Power Clean"][w_i] = st.checkbox("⚡ Crushed Power Clean (Mon)", value=cycle['success_log']["Power Clean"][w_i], key=pc_key)
 
                                     if not is_done and st.button("🏁 Finish & Log Week", key=f"final_btn_{t_idx}_{w_i}", use_container_width=True, type="primary"):
                                         cycle['day_completed_log'][d_key] = True; cycle['week_completed_log'][w_i] = True; save_data(); st.rerun()
