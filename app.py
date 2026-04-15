@@ -47,7 +47,6 @@ def convert_weight(val, to_unit):
 # --- UI CONFIG ---
 st.set_page_config(page_title="Texas Method Tracker", layout="wide")
 
-# CSS DÜZELTMESİ: Mobilde timer küçültüldü
 st.markdown("""
     <script>
     function notifyEnd() {
@@ -319,10 +318,11 @@ if st.session_state.cycles:
                                                 st.markdown("Bodyweight - Failure" if mv == "Chin-ups" else "10-15 Reps")
 
                                 st.divider()
-                                # BUTON DÜZELTMESİ: Direct session_state update
                                 if "Friday" not in d_name:
                                     if "Monday" in d_name and cycle.get("variant") == "Standard (Power Clean)":
                                         st.subheader("⚡ Power Clean Checklist")
+                                        # GÜZEL AÇIKLAMA BURADA
+                                        st.caption("ℹ️ **Olay Ne?** Eğer bugün tüm setleri nizami şekilde bitirdiysen bunu işaretle. Tiklersen haftaya ağırlığın otomatik olarak artacak. Ezemediysen boş bırak, haftaya aynı kiloda kalıp formu oturturuz.")
                                         pc_key = f"pc_success_{t_idx}_{w_i}"
                                         cycle['success_log']["Power Clean"][w_i] = st.checkbox("⚡ Crushed Power Clean", value=cycle['success_log']["Power Clean"][w_i], key=pc_key)
                                         st.write("---")
@@ -336,6 +336,8 @@ if st.session_state.cycles:
                                     
                                 else:
                                     st.subheader("🏆 Friday Checklist")
+                                    # GÜZEL AÇIKLAMA BURADA
+                                    st.caption("ℹ️ **Olay Ne?** Cuma günü hesap günü! Başarıyla bitirdiğin hareketleri tikle. İşaretlediklerin haftaya seçtiğin artış miktarı kadar ağır gelecek, yetişemediklerin ise yerinde sayacak. Kendine dürüst ol aslanım!")
                                     cc = st.columns(len(moves))
                                     for mi, mv in enumerate(moves):
                                         with cc[mi]:
