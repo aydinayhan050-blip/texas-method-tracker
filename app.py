@@ -92,6 +92,9 @@ if 'cycles' not in st.session_state:
     st.session_state.cycles = cycles
     st.session_state.current_unit = saved_unit
 
+if 'timer_paused' not in st.session_state:
+    st.session_state.timer_paused = False
+
 # --- SIDEBAR ---
 with st.sidebar:
     st.header("⚙️ Settings")
@@ -197,7 +200,11 @@ if st.session_state.cycles:
                 for w_i in range(cycle['weeks']):
                     with tabs[w_i]:
                         t_col1, t_col2 = st.columns([0.3, 0.7])
-                        with t_col1: rest_choice = st.slider("⏱️ Rest (min)", 1, 10, 3, key=f"rs_{t_idx}_{w_i}")
+                        with t_col1: 
+                            rest_choice = st.slider("⏱️ Rest (min)", 1, 10, 3, key=f"rs_{t_idx}_{w_i}")
+                            pause_btn = st.button("⏸️ Pause / ▶️ Resume", key=f"pause_{t_idx}_{w_i}", use_container_width=True)
+                            if pause_btn:
+                                st.session_state.timer_paused = not st.session_state.timer_paused
                         with t_col2:
                             timer_place = st.empty()
                             timer_place.markdown('<p class="big-timer">00:00</p>', unsafe_allow_html=True)
@@ -239,7 +246,6 @@ if st.session_state.cycles:
                                                 st.markdown(f"#### {set_count}x{rep_count} @ {format_weight(calc_w)} {u}")
                                                 st.caption(f"({int(pct*100)}% of {rm_label})")
                                                 
-                                                # --- WARMUP POPOVER ---
                                                 with st.popover("🔥 Warmup", use_container_width=True):
                                                     st.write(f"**Warmup for {mv}:**")
                                                     bar_w = 45 if u == "LBS" else 20
@@ -259,10 +265,17 @@ if st.session_state.cycles:
                                                     if prev_state_key not in st.session_state: st.session_state[prev_state_key] = False
                                                     if st.checkbox(f"Set {s_i+1}", key=cb_key) and not st.session_state[prev_state_key]:
                                                         st.session_state[prev_state_key] = True
-                                                        for s in range(rest_choice * 60, -1, -1):
-                                                            m, sc = divmod(s, 60)
-                                                            timer_place.markdown(f'<p class="big-timer">{m:02d}:{sc:02d}</p>', unsafe_allow_html=True)
-                                                            time.sleep(1)
+                                                        st.session_state.timer_paused = False
+                                                        s = rest_choice * 60
+                                                        while s >= 0:
+                                                            if not st.session_state.timer_paused:
+                                                                m, sc = divmod(s, 60)
+                                                                timer_place.markdown(f'<p class="big-timer">{m:02d}:{sc:02d}</p>', unsafe_allow_html=True)
+                                                                time.sleep(1)
+                                                                s -= 1
+                                                            else:
+                                                                time.sleep(0.5)
+                                                                st.rerun() if pause_btn else None 
                                                         st.components.v1.html("<script>window.parent.notifyEnd();</script>", height=0)
                                                         timer_place.markdown('<p class="ready-text">READY! 🔥</p>', unsafe_allow_html=True)
                                             else:
@@ -276,7 +289,7 @@ if st.session_state.cycles:
                                     elif is_done: st.success(f"✅ {d_name} Finished!")
                                 else:
                                     st.subheader("🏆 Friday Checklist")
-                                    st.caption("ℹ️ **How it works:** Check the lifts you successfully completed. Leave the ones you missed unchecked.")
+                                    st.caption("ℹ️ **How it works:** Check the lifts you successfully completed. Leave the ones you missed unchecked. Successful lifts will increase by your set increment next week; missed lifts will stay at the same weight.")
                                     cc = st.columns(len(moves))
                                     for mi, mv in enumerate(moves):
                                         with cc[mi]:
@@ -285,7 +298,7 @@ if st.session_state.cycles:
                                     
                                     if cycle.get("variant") == "Standard (Power Clean)":
                                         pc_key = f"pc_success_{t_idx}_{w_i}"
-                                        cycle['success_log']["Power Clean"][w_i] = st.checkbox("⚡ Log Power Clean Success (Mon)", value=cycle['success_log']["Power Clean"][w_i], key=pc_key)
+                                        cycle['success_log']["Power Clean"][w_i] = st.checkbox("⚡ Crushed Power Clean (Mon)", value=cycle['success_log']["Power Clean"][w_i], key=pc_key)
 
                                     if not is_done and st.button("🏁 Finish & Log Week", key=f"final_btn_{t_idx}_{w_i}", use_container_width=True, type="primary"):
                                         cycle['day_completed_log'][d_key] = True; cycle['week_completed_log'][w_i] = True; save_data(); st.rerun()
