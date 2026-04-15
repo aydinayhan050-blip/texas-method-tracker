@@ -26,6 +26,7 @@ def load_data():
                 if "success_log" not in cycle: cycle["success_log"] = {m: [False]*cycle["weeks"] for m in ["Squat", "Bench", "OHP", "Deadlift", "Power Clean"]}
                 if "Power Clean" not in cycle["success_log"]: cycle["success_log"]["Power Clean"] = [False]*cycle["weeks"]
                 if "variant" not in cycle: cycle["variant"] = "Modern (Deadlift Focus)"
+                if "start_date" not in cycle: cycle["start_date"] = datetime.now().strftime("%Y-%m-%d")
             return cycles, unit
     return [], "KG"
 
@@ -76,6 +77,12 @@ st.markdown("""
         color: #28a745;
         font-weight: 900;
         text-align: center;
+    }
+    .start-date-text {
+        font-size: 0.85em;
+        opacity: 0.6;
+        margin-top: -15px;
+        margin-bottom: 10px;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -161,7 +168,9 @@ if st.session_state.cycles:
         t_idx = len(st.session_state.cycles) - 1 - idx
         with st.container(border=True):
             h1, h2, h3, h4 = st.columns([0.55, 0.15, 0.15, 0.15])
-            h1.markdown(f"### ⚡ {cycle['name']} ({cycle.get('variant', 'Modern')})")
+            with h1:
+                st.markdown(f"### ⚡ {cycle['name']}")
+                st.markdown(f"<p class='start-date-text'>Started: {cycle.get('start_date', 'N/A')}</p>", unsafe_allow_html=True)
             
             p_key, w_key = f"p_{t_idx}", f"w_{t_idx}"
             if p_key not in st.session_state: st.session_state[p_key] = False
