@@ -69,6 +69,9 @@ with st.sidebar:
         st.session_state.cycles = []
         if os.path.exists(DB_FILE): os.remove(DB_FILE)
         st.rerun()
+    
+    # RELOCATED CREDITS
+    st.markdown('<div style="text-align: right; color: gray; font-size: 0.7rem; margin-top: 5px;">By Aydin Ayhan</div>', unsafe_allow_html=True)
 
 st.markdown(f"<style>.stApp {{ background-color: {bg_color}; color: {text_color}; }}</style>", unsafe_allow_html=True)
 st.title("Texas Method Training Tracker")
@@ -129,26 +132,54 @@ if st.session_state.cycles:
     for idx, cycle in enumerate(reversed(st.session_state.cycles)):
         true_idx = len(st.session_state.cycles) - 1 - idx
         with st.container(border=True):
-            head1, head2 = st.columns([0.85, 0.15])
+            head1, head2, head3 = st.columns([0.7, 0.15, 0.15])
             head1.subheader(f"⚡ {cycle['name']}")
-            # Date moved under the name
             start_val = cycle.get("start_date", datetime.now().strftime("%Y-%m-%d"))
             head1.markdown(f"*Started on: {start_val}*")
             
+            # --- PROGRESS CHART BUTTON ---
+            chart_key = f"show_chart_{true_idx}"
+            if chart_key not in st.session_state: st.session_state[chart_key] = False
+            
+            if head2.button("📊 Progress", key=f"btn_chart_{true_idx}", use_container_width=True):
+                st.session_state[chart_key] = not st.session_state[chart_key]
+
+            # --- DELETE WITH CONFIRMATION ---
             confirm_key = f"del_confirm_{true_idx}"
             if confirm_key not in st.session_state: st.session_state[confirm_key] = False
             
             if not st.session_state[confirm_key]:
-                if head2.button("🗑️ Delete", key=f"del_btn_{true_idx}"):
+                if head3.button("🗑️ Delete", key=f"del_btn_{true_idx}", use_container_width=True):
                     st.session_state[confirm_key] = True; st.rerun()
             else:
-                head2.warning("You sure?")
-                c1, c2 = head2.columns(2)
+                head3.warning("You sure?")
+                c1, c2 = head3.columns(2)
                 if c1.button("✅", key=f"y_{true_idx}"):
                     st.session_state.cycles.pop(true_idx)
                     st.session_state[confirm_key] = False; save_data(); st.rerun()
                 if c2.button("❌", key=f"n_{true_idx}"):
                     st.session_state[confirm_key] = False; st.rerun()
+
+            # --- RENDER PROGRESS CHART ---
+            if st.session_state[chart_key]:
+                weeks_range = list(range(1, cycle['weeks'] + 1))
+                fig = make_subplots(specs=[[{"secondary_y": True}]])
+                
+                # Add Lifts
+                for lift, color in zip(["Squat", "Bench", "OHP", "Deadlift"], ["#FF4B4B", "#1C83E1", "#00C49A", "#FFC300"]):
+                    weights = []
+                    for w_i in range(cycle['weeks']):
+                        c_count = sum(1 for s in cycle['success_log'][lift][:w_i] if s)
+                        weights.append(cycle['lifts'][lift]['rm'] + (cycle['lifts'][lift]['inc'] * c_count))
+                    fig.add_trace(go.Scatter(x=weeks_range, y=weights, name=lift, line=dict(color=color, width=3)), secondary_y=False)
+                
+                # Add BW
+                fig.add_trace(go.Scatter(x=weeks_range, y=cycle['weight_log'], name="Bodyweight", line=dict(color="gray", dash='dash')), secondary_y=True)
+                
+                fig.update_layout(title=f"Evolution of {cycle['name']}", xaxis_title="Week", height=400, template="plotly_dark" if theme_choice == "Deep Dark" else "plotly_white")
+                fig.update_yaxes(title_text=f"Lift Weight ({new_unit})", secondary_y=False)
+                fig.update_yaxes(title_text=f"Bodyweight ({new_unit})", secondary_y=True)
+                st.plotly_chart(fig, use_container_width=True)
 
             week_titles = [f"W{w_i+1} {'✅' if (any(cycle['success_log'][m][w_i] for m in ['Squat','Bench','OHP','Deadlift']) or cycle['failed_week_log'][w_i]) else '🏋️'}" for w_i in range(cycle['weeks'])]
             w_tabs = st.tabs(week_titles)
@@ -200,7 +231,5 @@ if st.session_state.cycles:
                                     cycle['failed_week_log'][w_i] = True
                                     for m in ["Squat", "Bench", "OHP", "Deadlift"]: cycle['success_log'][m][w_i] = False
                                     save_data(); st.rerun()
-
-    st.markdown('<div style="text-align: center; color: #555; font-size: 0.8rem; margin-top: 50px;">By Aydin Ayhan</div>', unsafe_allow_html=True)
 else:
     st.info("👋 No active cycles. Fill out the form above to get after it!")
