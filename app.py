@@ -235,7 +235,8 @@ if st.session_state.cycles:
                                         is_accessory = mv in ["Chin-ups", "Back Extensions"]
                                         if not is_accessory:
                                             c_rm = cycle['lifts'][mv]['rm'] + (cycle['lifts'][mv]['inc'] * counts[mv])
-                                            calc_w = round_to_plates(c_rm * pct, smallest_plate)
+                                            # FIX: Power Clean should not be affected by the 90% volume day multiplier
+                                            calc_w = round_to_plates(c_rm * (1.00 if mv == "Power Clean" else pct), smallest_plate)
                                             set_count = 3 if mv == "Power Clean" else (5 if "Monday" in d_name else (2 if "Wednesday" in d_name else 1))
                                             rep_count = 3 if mv == "Power Clean" else 5
                                             rm_label = "3RM" if mv == "Power Clean" else "5RM"
@@ -244,7 +245,7 @@ if st.session_state.cycles:
                                             st.markdown(f"**{lift_emojis.get(mv, '')} {mv}**")
                                             if not is_accessory:
                                                 st.markdown(f"#### {set_count}x{rep_count} @ {format_weight(calc_w)} {u}")
-                                                st.caption(f"({int(pct*100)}% of {rm_label})")
+                                                st.caption(f"({int(pct*100)}% of {rm_label})" if mv != "Power Clean" else f"(100% of {rm_label})")
                                                 
                                                 with st.popover("🔥 Warmup", use_container_width=True):
                                                     st.write(f"**Warmup for {mv}:**")
@@ -262,54 +263,67 @@ if st.session_state.cycles:
                                                 for s_i in range(set_count):
                                                     cb_key = f"ck_{t_idx}_{w_i}_{d_name}_{mv}_{s_i}"
                                                     prev_state_key = f"prev_{cb_key}"
+                                                    rem_key = f"rem_{cb_key}"
+                                                    
                                                     if prev_state_key not in st.session_state: st.session_state[prev_state_key] = False
-                                                    if st.checkbox(f"Set {s_i+1}", key=cb_key) and not st.session_state[prev_state_key]:
+                                                    if rem_key not in st.session_state: st.session_state[rem_key] = 0
+                                                    
+                                                    checked = st.checkbox(f"Set {s_i+1}", key=cb_key)
+                                                    
+                                                    if checked and not st.session_state[prev_state_key]:
                                                         st.session_state[prev_state_key] = True
                                                         st.session_state.timer_paused = False
-                                                        s = rest_choice * 60
-                                                        while s >= 0:
-                                                            if not st.session_state.timer_paused:
-                                                                m, sc = divmod(s, 60)
+                                                        st.session_state[rem_key] = rest_choice * 60
+                                                    
+                                                    # FIX: Advanced timer logic that survives reruns / pauses properly
+                                                    if checked and st.session_state[rem_key] > 0:
+                                                        if not st.session_state.timer_paused:
+                                                            while st.session_state[rem_key] >= 0:
+                                                                m, sc = divmod(st.session_state[rem_key], 60)
                                                                 timer_place.markdown(f'<p class="big-timer">{m:02d}:{sc:02d}</p>', unsafe_allow_html=True)
+                                                                if st.session_state[rem_key] == 0:
+                                                                    break
                                                                 time.sleep(1)
-                                                                s -= 1
-                                                            else:
-                                                                time.sleep(0.5)
-                                                                st.rerun() if pause_btn else None 
-                                                        st.components.v1.html("<script>window.parent.notifyEnd();</script>", height=0)
-                                                        timer_place.markdown('<p class="ready-text">READY! 🔥</p>', unsafe_allow_html=True)
+                                                                st.session_state[rem_key] -= 1
+                                                                
+                                                            if st.session_state[rem_key] == 0:
+                                                                st.components.v1.html("<script>window.parent.notifyEnd();</script>", height=0)
+                                                                timer_place.markdown('<p class="ready-text">READY! 🔥</p>', unsafe_allow_html=True)
+                                                                st.session_state[rem_key] = -1
+                                                        else:
+                                                            m, sc = divmod(st.session_state[rem_key], 60)
+                                                            timer_place.markdown(f'<p class="big-timer">{m:02d}:{sc:02d}</p>', unsafe_allow_html=True)
+
                                             else:
                                                 st.markdown("#### 3 Sets")
-                                                st.write("Failure" if mv == "Chin-ups" else "10-15 Reps")
+                                                # FIX: Bodyweight text added to Chin-ups
+                                                st.write("Bodyweight - Failure" if mv == "Chin-ups" else "10-15 Reps")
                                 
-                                st.divider()
-                                if "Friday" not in d_name:
-                                    # Monday / Wednesday logic
-                                    # Special section for Power Clean on Monday Standard variant
-                                    if "Monday" in d_name and cycle.get("variant") == "Standard (Power Clean)":
-                                        st.subheader("⚡ Power Clean Checklist")
-                                        st.caption("ℹ️ **How it works:** Check this if you successfully completed all sets of Power Clean today. Successful completion will increase the weight by your set increment next week.")
-                                        pc_key = f"pc_success_{t_idx}_{w_i}"
-                                        cycle['success_log']["Power Clean"][w_i] = st.checkbox("⚡ Crushed Power Clean", value=cycle['success_log']["Power Clean"][w_i], key=pc_key)
-                                        st.write("---")
-                                    
-                                    if not is_done and st.button(f"Mark {d_name} Finished", key=f"btn_v2_{d_key}", use_container_width=True):
-                                        cycle['day_completed_log'][d_key] = True; save_data(); st.rerun()
-                                    elif is_done: st.success(f"✅ {d_name} Finished!")
-                                    
-                                else:
-                                    # Friday logic
-                                    st.subheader("🏆 Friday Checklist")
-                                    st.caption("ℹ️ **How it works:** Check the lifts you successfully completed. Leave the ones you missed unchecked. Successful lifts will increase by your set increment next week; missed lifts will stay at the same weight.")
-                                    cc = st.columns(len(moves))
-                                    for mi, mv in enumerate(moves):
-                                        with cc[mi]:
-                                            cb_key = f"success_chk_{t_idx}_{w_i}_{mv}"
-                                            cycle['success_log'][mv][w_i] = st.checkbox(f"Crushed {mv}", value=cycle['success_log'][mv][w_i], key=cb_key)
+                            st.divider()
+                            if "Friday" not in d_name:
+                                if "Monday" in d_name and cycle.get("variant") == "Standard (Power Clean)":
+                                    st.subheader("⚡ Power Clean Checklist")
+                                    st.caption("ℹ️ **How it works:** Check this if you successfully completed all sets of Power Clean today. Successful completion will increase the weight by your set increment next week.")
+                                    pc_key = f"pc_success_{t_idx}_{w_i}"
+                                    cycle['success_log']["Power Clean"][w_i] = st.checkbox("⚡ Crushed Power Clean", value=cycle['success_log']["Power Clean"][w_i], key=pc_key)
+                                    st.write("---")
+                                
+                                if not is_done and st.button(f"Mark {d_name} Finished", key=f"btn_v2_{d_key}", use_container_width=True):
+                                    cycle['day_completed_log'][d_key] = True; save_data(); st.rerun()
+                                elif is_done: st.success(f"✅ {d_name} Finished!")
+                                
+                            else:
+                                st.subheader("🏆 Friday Checklist")
+                                st.caption("ℹ️ **How it works:** Check the lifts you successfully completed. Leave the ones you missed unchecked. Successful lifts will increase by your set increment next week; missed lifts will stay at the same weight.")
+                                cc = st.columns(len(moves))
+                                for mi, mv in enumerate(moves):
+                                    with cc[mi]:
+                                        cb_key = f"success_chk_{t_idx}_{w_i}_{mv}"
+                                        cycle['success_log'][mv][w_i] = st.checkbox(f"Crushed {mv}", value=cycle['success_log'][mv][w_i], key=cb_key)
 
-                                    if not is_done and st.button("🏁 Finish & Log Week", key=f"final_btn_{t_idx}_{w_i}", use_container_width=True, type="primary"):
-                                        cycle['day_completed_log'][d_key] = True; cycle['week_completed_log'][w_i] = True; save_data(); st.rerun()
-                                    elif is_done: st.success("🏆 Week Finished!")
+                                if not is_done and st.button("🏁 Finish & Log Week", key=f"final_btn_{t_idx}_{w_i}", use_container_width=True, type="primary"):
+                                    cycle['day_completed_log'][d_key] = True; cycle['week_completed_log'][w_i] = True; save_data(); st.rerun()
+                                elif is_done: st.success("🏆 Week Finished!")
 
             if st.session_state[p_key]:
                 st.divider()
