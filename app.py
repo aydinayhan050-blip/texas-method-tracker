@@ -127,7 +127,6 @@ u = st.session_state.current_unit
 def_inc = ["5", "5", "5", "10", "5"] if u == "LBS" else ["2.5", "2.5", "2.5", "5", "2.5"]
 
 with st.expander("👊 Create New Cycle", expanded=len(st.session_state.cycles) == 0):
-    # Move variant outside the form but inside session state to persist through unit changes
     if 'temp_variant' not in st.session_state:
         st.session_state.temp_variant = "Modern (Deadlift Focus)"
     
@@ -232,11 +231,28 @@ if st.session_state.cycles:
                                             calc_w = round_to_plates(c_rm * pct, smallest_plate)
                                             set_count = 3 if mv == "Power Clean" else (5 if "Monday" in d_name else (2 if "Wednesday" in d_name else 1))
                                             rep_count = 3 if mv == "Power Clean" else 5
+                                            rm_label = "3RM" if mv == "Power Clean" else "5RM"
                                         
                                         with st.container(border=True):
                                             st.markdown(f"**{lift_emojis.get(mv, '')} {mv}**")
                                             if not is_accessory:
-                                                st.markdown(f"#### {set_count}x{rep_count} @ {format_weight(calc_w)} {u} ({int(pct*100)}%)")
+                                                st.markdown(f"#### {set_count}x{rep_count} @ {format_weight(calc_w)} {u}")
+                                                st.caption(f"({int(pct*100)}% of {rm_label})")
+                                                
+                                                # --- WARMUP POPOVER ---
+                                                with st.popover("🔥 Warmup", use_container_width=True):
+                                                    st.write(f"**Warmup for {mv}:**")
+                                                    bar_w = 45 if u == "LBS" else 20
+                                                    st.write(f"1. {bar_w} {u} x 2x5 (Bar)")
+                                                    w40 = round_to_plates(calc_w * 0.4, smallest_plate)
+                                                    st.write(f"2. {format_weight(max(bar_w, w40))} {u} x 5 (40%)")
+                                                    w60 = round_to_plates(calc_w * 0.6, smallest_plate)
+                                                    st.write(f"3. {format_weight(max(bar_w, w60))} {u} x 3 (60%)")
+                                                    w80 = round_to_plates(calc_w * 0.8, smallest_plate)
+                                                    st.write(f"4. {format_weight(max(bar_w, w80))} {u} x 2 (80%)")
+                                                    w90 = round_to_plates(calc_w * 0.9, smallest_plate)
+                                                    st.write(f"5. {format_weight(max(bar_w, w90))} {u} x 1 (90%)")
+
                                                 for s_i in range(set_count):
                                                     cb_key = f"ck_{t_idx}_{w_i}_{d_name}_{mv}_{s_i}"
                                                     prev_state_key = f"prev_{cb_key}"
