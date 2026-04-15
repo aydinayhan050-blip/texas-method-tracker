@@ -20,23 +20,13 @@ def load_data():
             cycles = data.get("cycles", [])
             unit = data.get("unit", "KG")
             for cycle in cycles:
-                if "week_completed_log" not in cycle:
-                    cycle["week_completed_log"] = [False] * cycle["weeks"]
-                if "day_completed_log" not in cycle:
-                    cycle["day_completed_log"] = {}
-                if "weight_log" not in cycle:
-                    cycle["weight_log"] = [80.0] * cycle["weeks"]
-                if "success_log" not in cycle:
-                    cycle["success_log"] = {
-                        m: [False] * cycle["weeks"] 
-                        for m in ["Squat", "Bench", "OHP", "Deadlift", "Power Clean"]
-                    }
-                if "Power Clean" not in cycle["success_log"]:
-                    cycle["success_log"]["Power Clean"] = [False] * cycle["weeks"]
-                if "variant" not in cycle:
-                    cycle["variant"] = "Modern (Deadlift Focus)"
-                if "start_date" not in cycle:
-                    cycle["start_date"] = datetime.now().strftime("%Y-%m-%d")
+                if "week_completed_log" not in cycle: cycle["week_completed_log"] = [False] * cycle["weeks"]
+                if "day_completed_log" not in cycle: cycle["day_completed_log"] = {}
+                if "weight_log" not in cycle: cycle["weight_log"] = [80.0] * cycle["weeks"]
+                if "success_log" not in cycle: cycle["success_log"] = {m: [False]*cycle["weeks"] for m in ["Squat", "Bench", "OHP", "Deadlift", "Power Clean"]}
+                if "Power Clean" not in cycle["success_log"]: cycle["success_log"]["Power Clean"] = [False]*cycle["weeks"]
+                if "variant" not in cycle: cycle["variant"] = "Modern (Deadlift Focus)"
+                if "start_date" not in cycle: cycle["start_date"] = datetime.now().strftime("%Y-%m-%d")
             return cycles, unit
     return [], "KG"
 
@@ -47,13 +37,11 @@ def format_weight(weight):
 
 def round_to_plates(weight, smallest_plate):
     step = smallest_plate * 2
-    if step <= 0:
-        return weight
+    if step <= 0: return weight
     return round(weight / step) * step
 
 def convert_weight(val, to_unit):
-    if to_unit == "LBS":
-        return val * 2.20462
+    if to_unit == "LBS": return val * 2.20462
     return val / 2.20462
 
 # --- UI CONFIG ---
@@ -131,18 +119,16 @@ with st.sidebar:
                 cycle['lifts'][lift]['inc'] = convert_weight(cycle['lifts'][lift]['inc'], new_unit)
             cycle['weight_log'] = [convert_weight(w, new_unit) for w in cycle['weight_log']]
         st.session_state.current_unit = new_unit
-        save_data()
-        st.rerun()
+        save_data(); st.rerun()
 
     smallest_plate = st.number_input(f"🔩 Smallest Plate ({new_unit})", value=2.5 if new_unit == "LBS" else 1.25, step=0.25)
     
     st.divider()
     if st.button("🚨 Wipe All Data", type="primary", use_container_width=True):
         st.session_state.cycles = []
-        if os.path.exists(DB_FILE):
-            os.remove(DB_FILE)
+        if os.path.exists(DB_FILE): os.remove(DB_FILE)
         st.rerun()
-
+    
     st.markdown("<div style='text-align: center; opacity: 0.5; font-size: 0.8em; margin-top: 10px;'>by Aydin Ayhan</div>", unsafe_allow_html=True)
 
 st.markdown(f"""
@@ -157,7 +143,7 @@ st.markdown(f"""
     [data-testid="stMarkdownContainer"] h6,
     label span {{
         color: {text_color} !important;
-    }
+    }}
     </style>
 """, unsafe_allow_html=True)
 
@@ -172,9 +158,9 @@ with st.expander("👊 Create New Cycle", expanded=len(st.session_state.cycles) 
         st.session_state.temp_variant = "Modern (Deadlift Focus)"
     
     variant_choice = st.radio("🏋️ Select Method Variant", 
-                              ["Modern (Deadlift Focus)", "Standard (Power Clean)"], 
-                              index=0 if st.session_state.temp_variant == "Modern (Deadlift Focus)" else 1,
-                              help="Standard uses Power Cleans on Monday to manage fatigue for Friday intensity.")
+                             ["Modern (Deadlift Focus)", "Standard (Power Clean)"], 
+                             index=0 if st.session_state.temp_variant == "Modern (Deadlift Focus)" else 1,
+                             help="Standard uses Power Cleans on Monday to manage fatigue for Friday intensity.")
     st.session_state.temp_variant = variant_choice
     
     with st.form("new_cycle_form", clear_on_submit=True):
@@ -198,28 +184,17 @@ with st.expander("👊 Create New Cycle", expanded=len(st.session_state.cycles) 
 
         submit = st.form_submit_button("🚀 Start Cycle")
         if submit:
-            if not c_name.strip():
-                st.error("⚠️ Please enter a name!")
+            if not c_name.strip(): st.error("⚠️ Please enter a name!")
             else:
                 st.session_state.cycles.append({
-                    "name": c_name, 
-                    "variant": st.session_state.temp_variant, 
-                    "start_date": datetime.now().strftime("%Y-%m-%d"), 
-                    "weeks": int(c_weeks),
+                    "name": c_name, "variant": st.session_state.temp_variant, "start_date": datetime.now().strftime("%Y-%m-%d"), "weeks": int(c_weeks),
                     "success_log": {m: [False]*int(c_weeks) for m in ["Squat", "Bench", "OHP", "Deadlift", "Power Clean"]},
-                    "week_completed_log": [False] * int(c_weeks), 
-                    "day_completed_log": {}, 
-                    "weight_log": [float(c_bw)] * int(c_weeks),
-                    "lifts": {
-                        "Squat": {"rm": float(s_rm), "inc": float(s_inc)}, 
-                        "Bench": {"rm": float(b_rm), "inc": float(b_inc)},
-                        "OHP": {"rm": float(o_rm), "inc": float(o_inc)}, 
-                        "Deadlift": {"rm": float(d_rm), "inc": float(d_inc)},
-                        "Power Clean": {"rm": float(pc_rm), "inc": float(pc_inc)}
-                    }
+                    "week_completed_log": [False] * int(c_weeks), "day_completed_log": {}, "weight_log": [float(c_bw)] * int(c_weeks),
+                    "lifts": {"Squat": {"rm": float(s_rm), "inc": float(s_inc)}, "Bench": {"rm": float(b_rm), "inc": float(b_inc)},
+                              "OHP": {"rm": float(o_rm), "inc": float(o_inc)}, "Deadlift": {"rm": float(d_rm), "inc": float(d_inc)},
+                              "Power Clean": {"rm": float(pc_rm), "inc": float(pc_inc)}}
                 })
-                save_data()
-                st.rerun()
+                save_data(); st.rerun()
 
 # --- DISPLAY ---
 if st.session_state.cycles:
@@ -236,19 +211,13 @@ if st.session_state.cycles:
             if w_key not in st.session_state: st.session_state[w_key] = True
 
             if h2.button("📊 Progress", key=f"bp_{t_idx}", use_container_width=True):
-                st.session_state[p_key] = not st.session_state[p_key]
-                st.session_state[w_key] = False
-                st.rerun()
+                st.session_state[p_key] = not st.session_state[p_key]; st.session_state[w_key] = False; st.rerun()
             if h3.button("🏋️ Weights", key=f"bw_{t_idx}", use_container_width=True):
-                st.session_state[w_key] = not st.session_state[w_key]
-                st.session_state[p_key] = False
-                st.rerun()
+                st.session_state[w_key] = not st.session_state[w_key]; st.session_state[p_key] = False; st.rerun()
             
             with h4.popover("🗑️ Delete", use_container_width=True):
                 if st.button("Yes, delete!", key=f"conf_del_{t_idx}", type="primary", use_container_width=True):
-                    st.session_state.cycles.pop(t_idx)
-                    save_data()
-                    st.rerun()
+                    st.session_state.cycles.pop(t_idx); save_data(); st.rerun()
 
             if st.session_state[w_key]:
                 tabs = st.tabs([f"Week {i+1} {'✅' if cycle['week_completed_log'][i] else ''}" for i in range(cycle['weeks'])])
@@ -336,7 +305,7 @@ if st.session_state.cycles:
                                                                     break
                                                                 time.sleep(1)
                                                                 st.session_state[rem_key] -= 1
-                                                            
+                                                                
                                                             if st.session_state[rem_key] == 0:
                                                                 st.components.v1.html("<script>window.parent.notifyEnd();</script>", height=0)
                                                                 timer_place.markdown('<p class="ready-text">READY! 🔥</p>', unsafe_allow_html=True)
@@ -352,6 +321,7 @@ if st.session_state.cycles:
                                 if "Friday" not in d_name:
                                     if "Monday" in d_name and cycle.get("variant") == "Standard (Power Clean)":
                                         st.subheader("⚡ Power Clean Checklist")
+                                        # ENGLISH DESCRIPTION HERE
                                         st.caption("ℹ️ **What's the play?** If you crushed every set with solid form today, check this box. Doing so triggers a weight increase for next week. If you struggled or your form was shit, leave it blank—we'll stay at this weight to dial it in.")
                                         pc_key = f"pc_success_{t_idx}_{w_i}"
                                         cycle['success_log']["Power Clean"][w_i] = st.checkbox("⚡ Crushed Power Clean", value=cycle['success_log']["Power Clean"][w_i], key=pc_key)
@@ -360,13 +330,13 @@ if st.session_state.cycles:
                                     if not is_done:
                                         if st.button(f"Mark {d_name} Finished", key=f"btn_v2_{d_key}", use_container_width=True):
                                             st.session_state.cycles[t_idx]['day_completed_log'][d_key] = True
-                                            save_data()
-                                            st.rerun()
+                                            save_data(); st.rerun()
                                     else: 
                                         st.success(f"✅ {d_name} Finished!")
                                     
                                 else:
                                     st.subheader("🏆 Friday Checklist")
+                                    # ENGLISH DESCRIPTION HERE
                                     st.caption("ℹ️ **Judgment Day!** Mark the lifts you successfully smashed today. The checked ones will get heavier next week based on your chosen increments. If you missed reps, leave 'em blank and stay put. Don't bullshit yourself, boss!")
                                     cc = st.columns(len(moves))
                                     for mi, mv in enumerate(moves):
@@ -378,8 +348,7 @@ if st.session_state.cycles:
                                         if st.button("🏁 Finish & Log Week", key=f"final_btn_{t_idx}_{w_i}", use_container_width=True, type="primary"):
                                             st.session_state.cycles[t_idx]['day_completed_log'][d_key] = True
                                             st.session_state.cycles[t_idx]['week_completed_log'][w_i] = True
-                                            save_data()
-                                            st.rerun()
+                                            save_data(); st.rerun()
                                     else: 
                                         st.success("🏆 Week Finished!")
 
@@ -390,18 +359,14 @@ if st.session_state.cycles:
                 with c1:
                     fig_w = go.Figure()
                     lifts_to_show = ["Squat", "Bench", "OHP", "Deadlift"]
-                    if cycle.get("variant") == "Standard (Power Clean)":
-                        lifts_to_show.append("Power Clean")
-
+                    if cycle.get("variant") == "Standard (Power Clean)": lifts_to_show.append("Power Clean")
                     colors = {"Squat": "#FF4B4B", "Bench": "#1C83E1", "OHP": "#FFFFFF", "Deadlift": "#FFC300", "Power Clean": "#00FF00"}
                     for lift in lifts_to_show:
                         y_vals = []
                         for w in range(cycle['weeks']):
                             c = sum(1 for prev in range(w) if cycle['success_log'][lift][prev])
                             y_vals.append(cycle['lifts'][lift]['rm'] + (cycle['lifts'][lift]['inc'] * c))
-
                         fig_w.add_trace(go.Scatter(x=weeks_range, y=y_vals, name=lift, line=dict(color=colors.get(lift, "#888"), width=4), mode='lines+markers'))
-
                     fig_w.update_layout(title="Lifts Progress", template="plotly_dark" if theme_choice == "Deep Dark" else "plotly_white")
                     st.plotly_chart(fig_w, use_container_width=True)
                 with c2:
