@@ -46,43 +46,45 @@ def convert_weight(val, to_unit):
 # --- UI CONFIG ---
 st.set_page_config(page_title="Texas Method Tracker", layout="wide")
 
-# THE ULTIMATE ANTI-DIMMING CSS (STRONGEST VERSION)
+# THE ABSOLUTE ZERO-DIMMING CSS (TOTAL OVERRIDE)
 st.markdown("""
     <style>
-    /* 1. Stop the status spinner and the dimming overlay entirely */
+    /* 1. HIDE ALL STATUS WIDGETS (SPINNERS) */
     div[data-testid="stStatusWidget"] { display: none !important; }
     
-    /* 2. Target the overlay that Streamlit puts over the app during execution */
-    .stApp > header { background-color: transparent !important; }
-    
-    /* 3. The actual 'dimming' is often a semi-transparent layer or a filter */
-    div[data-testid="stAppViewBlockContainer"] {
+    /* 2. FORCE FULL VISIBILITY ON EVERY ELEMENT ALWAYS */
+    * {
         opacity: 1 !important;
         filter: none !important;
     }
 
-    /* 4. Kill the 'stale' visual effect (the graying out) */
-    div.stBlock[data-stale="true"] {
+    /* 3. SPECIFICALLY KILL THE STALE STATE OVERLAY AND GREY-OUT */
+    div.stBlock[data-stale="true"], 
+    div[data-testid="stAppViewBlockContainer"] [data-stale="true"],
+    .element-container[data-stale="true"] {
         opacity: 1 !important;
         filter: none !important;
         pointer-events: auto !important;
     }
-    
-    /* Extra: Make sure the content doesn't shift or flicker */
-    .element-container { opacity: 1 !important; }
 
-    /* Giant Timer Styling */
+    /* 4. PREVENT THE SEMI-TRANSPARENT LAYER OVER BUTTONS/CHECKBOXES */
+    button:disabled, input:disabled, .stCheckbox:disabled {
+        opacity: 1 !important;
+        cursor: pointer !important;
+    }
+
+    /* 5. GIANT TIMER STYLING */
     .big-timer {
-        font-size: 100px !important;
+        font-size: 110px !important;
         font-weight: 900;
         text-align: center;
         color: #FF4B4B;
         margin: 0px;
         line-height: 1;
-        font-family: 'monospace';
+        font-family: 'Courier New', Courier, monospace;
     }
     .ready-text {
-        font-size: 70px !important;
+        font-size: 75px !important;
         color: #28a745;
         font-weight: 900;
         text-align: center;
@@ -174,7 +176,7 @@ if st.session_state.cycles:
                 tabs = st.tabs([f"Week {i+1} {'✅' if cycle['week_completed_log'][i] else ''}" for i in range(cycle['weeks'])])
                 for w_i in range(cycle['weeks']):
                     with tabs[w_i]:
-                        # TIMER
+                        # --- TIMER SECTION ---
                         t_col1, t_col2 = st.columns([0.3, 0.7])
                         with t_col1: rest_choice = st.slider("⏱️ Rest (min)", 1, 10, 3, key=f"rs_{true_idx}_{w_i}")
                         with t_col2:
