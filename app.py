@@ -44,7 +44,24 @@ def convert_weight(val, to_unit):
 # --- UI CONFIG ---
 st.set_page_config(page_title="Texas Method Tracker", layout="wide")
 
+# JavaScript for Vibration and Sound
 st.markdown("""
+    <script>
+    function notifyEnd() {
+        // Vibrate for 500ms
+        if (navigator.vibrate) {
+            navigator.vibrate(500);
+        }
+        // Play beep sound
+        var context = new (window.AudioContext || window.webkitAudioContext)();
+        var osc = context.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(440, context.currentTime);
+        osc.connect(context.destination);
+        osc.start();
+        osc.stop(context.currentTime + 0.5);
+    }
+    </script>
     <style>
     div[data-testid="stStatusWidget"] { display: none !important; }
     * { opacity: 1 !important; filter: none !important; }
@@ -191,18 +208,25 @@ if st.session_state.cycles:
                                         
                                         with st.container(border=True):
                                             st.markdown(f"**{lift_emojis.get(mv, '')} {mv}**")
-                                            st.markdown(f"#### {set_count}x5 @ {format_weight(calc_w)} {u} ({int(pct*100)}% of 5RM)")
+                                            st.markdown(f"#### {set_count}x5 @ {format_weight(calc_w)} {u}")
+                                            
+                                            # Box only checkboxes
                                             for s_i in range(set_count):
-                                                if st.checkbox(f"S{s_i+1}", key=f"ck_{t_idx}_{w_i}_{d_name}_{mv}_{s_i}"):
-                                                    total = rest_choice * 60
+                                                cb_key = f"ck_{t_idx}_{w_i}_{d_name}_{mv}_{s_i}"
+                                                if st.checkbox(f"Set {s_i+1}", key=cb_key):
+                                                    # Start global timer when a set is checked
+                                                    total_seconds = rest_choice * 60
                                                     prog_bar = st.progress(0)
-                                                    for s in range(total, -1, -1):
+                                                    for s in range(total_seconds, -1, -1):
                                                         m, sc = divmod(s, 60)
                                                         timer_place.markdown(f'<p class="big-timer">{m:02d}:{sc:02d}</p>', unsafe_allow_html=True)
-                                                        prog_bar.progress((total-s)/total)
+                                                        prog_bar.progress((total_seconds-s)/total_seconds)
                                                         time.sleep(1)
+                                                    
+                                                    # Notification (JavaScript trigger)
+                                                    st.components.v1.html("<script>window.parent.notifyEnd();</script>", height=0)
                                                     timer_place.markdown('<p class="ready-text">READY! 🔥</p>', unsafe_allow_html=True)
-                                                    prog_bar.empty(); st.balloons()
+                                                    prog_bar.empty()
                                             
                                             with st.expander("Warm-up"):
                                                 bar_w = 45 if u == "LBS" else 20
@@ -215,11 +239,9 @@ if st.session_state.cycles:
                                 if "Friday" not in d_name:
                                     if st.button(f"Mark {d_name} Finished", key=f"btn_v2_{d_key}", use_container_width=True):
                                         cycle['day_completed_log'][d_key] = True
-                                        save_data()
-                                        st.rerun()
+                                        save_data(); st.rerun()
                                 else:
                                     st.subheader("🏆 Friday Checklist")
-                                    st.caption("ℹ️ *Check 'Crushed' if you hit the reps. This increases weight for next week.*")
                                     cc = st.columns(len(moves))
                                     for mi, mv in enumerate(moves):
                                         with cc[mi]:
@@ -230,8 +252,7 @@ if st.session_state.cycles:
                                     if st.button("🏁 Finish & Log Week", key=f"final_btn_{t_idx}_{w_i}", use_container_width=True, type="primary"):
                                         cycle['day_completed_log'][d_key] = True
                                         cycle['week_completed_log'][w_i] = True
-                                        save_data()
-                                        st.rerun()
+                                        save_data(); st.rerun()
 
             if st.session_state[p_key]:
                 st.divider()
