@@ -133,7 +133,17 @@ with st.sidebar:
 
 st.markdown(f"""
     <style>
-    .stApp {{ background-color: {bg_color}; }}
+    :root {{
+        color-scheme: {"dark" if theme_choice == "Deep Dark" else "light"};
+    }}
+    .stApp, [data-testid="stHeader"], [data-testid="stSidebar"] {{ 
+        background-color: {bg_color} !important; 
+    }}
+    [data-testid="stVerticalBlockBorderWrapper"],
+    div[data-testid="stExpander"] details,
+    div[data-testid="stPopoverBody"] {{
+        background-color: {bg_color} !important;
+    }}
     [data-testid="stMarkdownContainer"] p, 
     [data-testid="stMarkdownContainer"] h1, 
     [data-testid="stMarkdownContainer"] h2, 
@@ -158,9 +168,9 @@ with st.expander("👊 Create New Cycle", expanded=len(st.session_state.cycles) 
         st.session_state.temp_variant = "Modern (Deadlift Focus)"
     
     variant_choice = st.radio("🏋️ Select Method Variant", 
-                             ["Modern (Deadlift Focus)", "Standard (Power Clean)"], 
-                             index=0 if st.session_state.temp_variant == "Modern (Deadlift Focus)" else 1,
-                             help="Standard uses Power Cleans on Monday to manage fatigue for Friday intensity.")
+                              ["Modern (Deadlift Focus)", "Standard (Power Clean)"], 
+                              index=0 if st.session_state.temp_variant == "Modern (Deadlift Focus)" else 1,
+                              help="Standard uses Power Cleans on Monday to manage fatigue for Friday intensity.")
     st.session_state.temp_variant = variant_choice
     
     with st.form("new_cycle_form", clear_on_submit=True):
@@ -258,7 +268,7 @@ if st.session_state.cycles:
                                         if not is_accessory:
                                             c_rm = cycle['lifts'][mv]['rm'] + (cycle['lifts'][mv]['inc'] * counts[mv])
                                             calc_w = round_to_plates(c_rm * (1.00 if mv == "Power Clean" else pct), smallest_plate)
-                                            set_count = 3 if mv == "Power Clean" else (5 if "Monday" in d_name else (2 if "Wednesday" in d_name else 1))
+                                            set_count = 5 if mv == "Power Clean" else (5 if "Monday" in d_name else (2 if "Wednesday" in d_name else 1))
                                             rep_count = 3 if mv == "Power Clean" else 5
                                             rm_label = "3RM" if mv == "Power Clean" else "5RM"
                                         
