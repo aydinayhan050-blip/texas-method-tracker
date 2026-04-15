@@ -27,15 +27,19 @@ def load_data():
 # --- CORE MATH ---
 def calculate_1rm(weight, reps):
     if reps == 1: return weight
-    # Brzycki Formula
     return weight / (1.0278 - (0.0278 * reps))
+
+def custom_round_percent(p):
+    """Göz zevki için %79 veya %81 gibi değerleri %80'e yuvarlar"""
+    return int(5 * round(float(p)/5))
 
 def format_weight(weight):
     val = round(float(weight), 2)
     return f"{int(val)}" if val % 1 == 0 else f"{val}"
 
-def round_to_plates(weight, smallest_unit):
-    step = smallest_unit * 2
+def round_to_plates(weight, smallest_plate):
+    step = smallest_plate * 2
+    if step <= 0: return weight
     return round(weight / step) * step
 
 def convert_weight(val, to_unit):
@@ -60,6 +64,7 @@ with st.sidebar:
     bg_color = "#0e1117" if theme_choice == "Deep Dark" else "#ffffff"
     text_color = "#ffffff" if theme_choice == "Deep Dark" else "#0e1117"
 
+    # Birim değiştiğinde verileri dönüştür
     if new_unit != st.session_state.current_unit:
         for cycle in st.session_state.cycles:
             for lift in cycle['lifts']:
@@ -69,12 +74,17 @@ with st.sidebar:
         st.session_state.current_unit = new_unit
         save_data(); st.rerun()
 
-    plate = st.number_input(f"🔩 Plate Inc ({new_unit})", value=2.5 if new_unit == "LBS" else 1.25, step=0.25)
+    # DINAMIK SMALLEST PLATE DEFAULT DEĞERİ
+    default_plate = 2.5 if new_unit == "LBS" else 1.25
+    smallest_plate = st.number_input(f"🔩 Smallest Plate ({new_unit})", value=default_plate, step=0.25)
+    
     st.divider()
     if st.button("🚨 Wipe All Data", type="primary", use_container_width=True):
         st.session_state.cycles = []
         if os.path.exists(DB_FILE): os.remove(DB_FILE)
         st.rerun()
+    
+    st.markdown('<div style="text-align: right; color: gray; font-size: 0.7rem; margin-top: 5px;">By Aydın Ayhan</div>', unsafe_allow_html=True)
 
 st.markdown(f"<style>.stApp {{ background-color: {bg_color}; color: {text_color}; }}</style>", unsafe_allow_html=True)
 st.title("Texas Method Training Tracker")
@@ -176,11 +186,10 @@ if st.session_state.cycles:
                                 for mv in moves:
                                     current_5rm = cycle['lifts'][mv]['rm'] + (cycle['lifts'][mv]['inc'] * counts[mv])
                                     current_1rm = calculate_1rm(current_5rm, 5)
-                                    calc_w = round_to_plates(current_5rm * pct, plate)
+                                    calc_w = round_to_plates(current_5rm * pct, smallest_plate)
                                     
-                                    # Yüzdelik Analizi - TAM SAYIYA YUVARLANMIŞ
-                                    p_1rm = round((calc_w / current_1rm) * 100)
-                                    p_5rm = round((calc_w / current_5rm) * 100)
+                                    p_1rm = custom_round_percent((calc_w / current_1rm) * 100)
+                                    p_5rm = custom_round_percent((calc_w / current_5rm) * 100)
                                     
                                     reps_str = "5x5" if "Monday" in title else ("2x5" if "Wednesday" in title else "1x5")
                                     
