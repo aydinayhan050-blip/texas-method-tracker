@@ -47,15 +47,10 @@ def convert_weight(val, to_unit):
 # --- UI CONFIG ---
 st.set_page_config(page_title="Texas Method Tracker", layout="wide")
 
-# --- CSS FOR DARK/LIGHT MODE ---
-theme_choice = st.sidebar.selectbox("🎨 Theme", ["Deep Dark", "Light"])
-bg_color = "#0e1117" if theme_choice == "Deep Dark" else "#ffffff"
-text_color = "#ffffff" if theme_choice == "Deep Dark" else "#000000"
-
-st.markdown(f"""
+st.markdown("""
     <script>
-    function notifyEnd() {{
-        if (navigator.vibrate) {{ navigator.vibrate(500); }}
+    function notifyEnd() {
+        if (navigator.vibrate) { navigator.vibrate(500); }
         var context = new (window.AudioContext || window.webkitAudioContext)();
         var osc = context.createOscillator();
         osc.type = 'sine';
@@ -63,15 +58,12 @@ st.markdown(f"""
         osc.connect(context.destination);
         osc.start();
         osc.stop(context.currentTime + 0.5);
-    }}
+    }
     </script>
     <style>
-    div[data-testid="stStatusWidget"] {{ display: none !important; }}
-    .stApp {{ background-color: {bg_color}; color: {text_color}; }}
-    /* Force text color for generic elements in Light Mode */
-    .stApp p, .stApp span, .stApp label, .stApp div {{ color: {text_color}; }}
-    
-    .big-timer {{
+    div[data-testid="stStatusWidget"] { display: none !important; }
+    * { opacity: 1 !important; filter: none !important; }
+    .big-timer {
         font-size: 110px !important;
         font-weight: 900;
         text-align: center;
@@ -79,19 +71,19 @@ st.markdown(f"""
         margin: 0px;
         line-height: 1;
         font-family: 'Courier New', Courier, monospace;
-    }}
-    .ready-text {{
+    }
+    .ready-text {
         font-size: 75px !important;
         color: #28a745;
         font-weight: 900;
         text-align: center;
-    }}
-    .start-date-text {{
+    }
+    .start-date-text {
         font-size: 0.85em;
         opacity: 0.6;
         margin-top: -15px;
         margin-bottom: 10px;
-    }}
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -108,6 +100,8 @@ with st.sidebar:
     st.header("⚙️ Settings")
     unit_index = 0 if st.session_state.current_unit == "LBS" else 1
     new_unit = st.radio("📏 Unit", ["LBS", "KG"], index=unit_index)
+    theme_choice = st.selectbox("🎨 Theme", ["Deep Dark", "Light"])
+    bg_color = "#0e1117" if theme_choice == "Deep Dark" else "#ffffff"
 
     if new_unit != st.session_state.current_unit:
         for cycle in st.session_state.cycles:
@@ -128,6 +122,7 @@ with st.sidebar:
     
     st.markdown("<div style='text-align: center; opacity: 0.5; font-size: 0.8em; margin-top: 10px;'>by Aydin Ayhan</div>", unsafe_allow_html=True)
 
+st.markdown(f"<style>.stApp {{ background-color: {bg_color}; }}</style>", unsafe_allow_html=True)
 st.title("Texas Method Training Tracker")
 
 # --- CREATE CYCLE ---
@@ -140,7 +135,8 @@ with st.expander("👊 Create New Cycle", expanded=len(st.session_state.cycles) 
     
     variant_choice = st.radio("🏋️ Select Method Variant", 
                              ["Modern (Deadlift Focus)", "Standard (Power Clean)"], 
-                             index=0 if st.session_state.temp_variant == "Modern (Deadlift Focus)" else 1)
+                             index=0 if st.session_state.temp_variant == "Modern (Deadlift Focus)" else 1,
+                             help="Standard uses Power Cleans on Monday to manage fatigue for Friday intensity.")
     st.session_state.temp_variant = variant_choice
     
     with st.form("new_cycle_form", clear_on_submit=True):
@@ -207,7 +203,8 @@ if st.session_state.cycles:
                         with t_col1: 
                             rest_choice = st.slider("⏱️ Rest (min)", 1, 10, 3, key=f"rs_{t_idx}_{w_i}")
                             pause_btn = st.button("⏸️ Pause / ▶️ Resume", key=f"pause_{t_idx}_{w_i}", use_container_width=True)
-                            if pause_btn: st.session_state.timer_paused = not st.session_state.timer_paused
+                            if pause_btn:
+                                st.session_state.timer_paused = not st.session_state.timer_paused
                         with t_col2:
                             timer_place = st.empty()
                             timer_place.markdown('<p class="big-timer">00:00</p>', unsafe_allow_html=True)
@@ -215,12 +212,10 @@ if st.session_state.cycles:
                         cycle['weight_log'][w_i] = st.number_input(f"BW ({u})", value=cycle['weight_log'][w_i], key=f"bw_in_{t_idx}_{w_i}")
                         st.divider()
 
-                        # --- POWER CLEAN SPECIFIC LOGIC ---
-                        # Count successes until current week
                         counts = {m: sum(1 for prev in range(w_i) if cycle['success_log'][m][prev]) for m in ["Squat", "Bench", "OHP", "Deadlift", "Power Clean"]}
-                        
                         is_a = (w_i + 1) % 2 != 0
                         m_p, w_p = ("Bench", "OHP") if is_a else ("OHP", "Bench")
+                        
                         monday_pull = "Power Clean" if cycle.get("variant") == "Standard (Power Clean)" else "Deadlift"
                         
                         days = [("Monday (Volume)", 0.90, ["Squat", m_p, monday_pull]),
@@ -255,23 +250,45 @@ if st.session_state.cycles:
                                                     st.write(f"**Warmup for {mv}:**")
                                                     bar_w = 45 if u == "LBS" else 20
                                                     st.write(f"1. {bar_w} {u} x 2x5 (Bar)")
-                                                    for p, r in [(0.4, 5), (0.6, 3), (0.8, 2), (0.9, 1)]:
-                                                        st.write(f"{int(p*100)}%: {format_weight(max(bar_w, round_to_plates(calc_w*p, smallest_plate)))} {u} x {r}")
+                                                    w40 = round_to_plates(calc_w * 0.4, smallest_plate)
+                                                    st.write(f"2. {format_weight(max(bar_w, w40))} {u} x 5 (40%)")
+                                                    w60 = round_to_plates(calc_w * 0.6, smallest_plate)
+                                                    st.write(f"3. {format_weight(max(bar_w, w60))} {u} x 3 (60%)")
+                                                    w80 = round_to_plates(calc_w * 0.8, smallest_plate)
+                                                    st.write(f"4. {format_weight(max(bar_w, w80))} {u} x 2 (80%)")
+                                                    w90 = round_to_plates(calc_w * 0.9, smallest_plate)
+                                                    st.write(f"5. {format_weight(max(bar_w, w90))} {u} x 1 (90%)")
 
                                                 for s_i in range(set_count):
                                                     cb_key = f"ck_{t_idx}_{w_i}_{d_name}_{mv}_{s_i}"
-                                                    if st.checkbox(f"Set {s_i+1}", key=cb_key):
-                                                        # Timer Logic (Simplified for flow)
-                                                        pass
+                                                    prev_state_key = f"prev_{cb_key}"
+                                                    if prev_state_key not in st.session_state: st.session_state[prev_state_key] = False
+                                                    if st.checkbox(f"Set {s_i+1}", key=cb_key) and not st.session_state[prev_state_key]:
+                                                        st.session_state[prev_state_key] = True
+                                                        st.session_state.timer_paused = False
+                                                        s = rest_choice * 60
+                                                        while s >= 0:
+                                                            if not st.session_state.timer_paused:
+                                                                m, sc = divmod(s, 60)
+                                                                timer_place.markdown(f'<p class="big-timer">{m:02d}:{sc:02d}</p>', unsafe_allow_html=True)
+                                                                time.sleep(1)
+                                                                s -= 1
+                                                            else:
+                                                                time.sleep(0.5)
+                                                                st.rerun() if pause_btn else None 
+                                                        st.components.v1.html("<script>window.parent.notifyEnd();</script>", height=0)
+                                                        timer_place.markdown('<p class="ready-text">READY! 🔥</p>', unsafe_allow_html=True)
                                             else:
                                                 st.markdown("#### 3 Sets")
                                                 st.write("Failure" if mv == "Chin-ups" else "10-15 Reps")
                                 
                                 st.divider()
                                 if "Friday" not in d_name:
+                                    # Monday / Wednesday logic
+                                    # Special section for Power Clean on Monday Standard variant
                                     if "Monday" in d_name and cycle.get("variant") == "Standard (Power Clean)":
                                         st.subheader("⚡ Power Clean Checklist")
-                                        st.caption("ℹ️ **How it works:** Check this if you crushed all sets of Power Clean. It increases next week's weight.")
+                                        st.caption("ℹ️ **How it works:** Check this if you successfully completed all sets of Power Clean today. Successful completion will increase the weight by your set increment next week.")
                                         pc_key = f"pc_success_{t_idx}_{w_i}"
                                         cycle['success_log']["Power Clean"][w_i] = st.checkbox("⚡ Crushed Power Clean", value=cycle['success_log']["Power Clean"][w_i], key=pc_key)
                                         st.write("---")
@@ -279,9 +296,11 @@ if st.session_state.cycles:
                                     if not is_done and st.button(f"Mark {d_name} Finished", key=f"btn_v2_{d_key}", use_container_width=True):
                                         cycle['day_completed_log'][d_key] = True; save_data(); st.rerun()
                                     elif is_done: st.success(f"✅ {d_name} Finished!")
+                                    
                                 else:
+                                    # Friday logic
                                     st.subheader("🏆 Friday Checklist")
-                                    st.caption("ℹ️ **How it works:** Check the lifts you successfully completed. Successful lifts increase next week.")
+                                    st.caption("ℹ️ **How it works:** Check the lifts you successfully completed. Leave the ones you missed unchecked. Successful lifts will increase by your set increment next week; missed lifts will stay at the same weight.")
                                     cc = st.columns(len(moves))
                                     for mi, mv in enumerate(moves):
                                         with cc[mi]:
@@ -298,15 +317,21 @@ if st.session_state.cycles:
                 c1, c2 = st.columns(2)
                 with c1:
                     fig_w = go.Figure()
-                    for lift in ["Squat", "Bench", "OHP", "Deadlift", "Power Clean"]:
-                        if lift == "Power Clean" and cycle.get("variant") != "Standard (Power Clean)": continue
-                        y_vals = [cycle['lifts'][lift]['rm'] + (cycle['lifts'][lift]['inc'] * sum(1 for prev in range(w) if cycle['success_log'][lift][prev])) for w in range(cycle['weeks'])]
-                        fig_w.add_trace(go.Scatter(x=weeks_range, y=y_vals, name=lift, mode='lines+markers'))
+                    lifts_to_show = ["Squat", "Bench", "OHP", "Deadlift"]
+                    if cycle.get("variant") == "Standard (Power Clean)": lifts_to_show.append("Power Clean")
+                    
+                    colors = {"Squat": "#FF4B4B", "Bench": "#1C83E1", "OHP": "#FFFFFF", "Deadlift": "#FFC300", "Power Clean": "#00FF00"}
+                    for lift in lifts_to_show:
+                        y_vals = []
+                        for w in range(cycle['weeks']):
+                            c = sum(1 for prev in range(w) if cycle['success_log'][lift][prev])
+                            y_vals.append(cycle['lifts'][lift]['rm'] + (cycle['lifts'][lift]['inc'] * c))
+                        fig_w.add_trace(go.Scatter(x=weeks_range, y=y_vals, name=lift, line=dict(color=colors.get(lift, "#888"), width=4), mode='lines+markers'))
                     fig_w.update_layout(title="Lifts Progress", template="plotly_dark" if theme_choice == "Deep Dark" else "plotly_white")
                     st.plotly_chart(fig_w, use_container_width=True)
                 with c2:
                     fig_p = go.Figure()
-                    fig_p.add_trace(go.Scatter(x=weeks_range, y=cycle['weight_log'], name="BW", mode='lines+markers'))
+                    fig_p.add_trace(go.Scatter(x=weeks_range, y=cycle['weight_log'], name="BW", line=dict(color="#00C49A", width=4), mode='lines+markers'))
                     fig_p.update_layout(title="Bodyweight Progress", template="plotly_dark" if theme_choice == "Deep Dark" else "plotly_white")
                     st.plotly_chart(fig_p, use_container_width=True)
 else:
