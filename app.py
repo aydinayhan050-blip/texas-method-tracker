@@ -127,8 +127,15 @@ u = st.session_state.current_unit
 def_inc = ["5", "5", "5", "10", "5"] if u == "LBS" else ["2.5", "2.5", "2.5", "5", "2.5"]
 
 with st.expander("👊 Create New Cycle", expanded=len(st.session_state.cycles) == 0):
-    variant = st.radio("🏋️ Select Method Variant", ["Modern (Deadlift Focus)", "Standard (Power Clean)"], 
-                       help="Standard uses Power Cleans on Monday to manage fatigue for Friday intensity.")
+    # Move variant outside the form but inside session state to persist through unit changes
+    if 'temp_variant' not in st.session_state:
+        st.session_state.temp_variant = "Modern (Deadlift Focus)"
+    
+    variant_choice = st.radio("🏋️ Select Method Variant", 
+                             ["Modern (Deadlift Focus)", "Standard (Power Clean)"], 
+                             index=0 if st.session_state.temp_variant == "Modern (Deadlift Focus)" else 1,
+                             help="Standard uses Power Cleans on Monday to manage fatigue for Friday intensity.")
+    st.session_state.temp_variant = variant_choice
     
     with st.form("new_cycle_form", clear_on_submit=True):
         c_name = st.text_input("📝 Cycle Name", placeholder="e.g. Strength Phase 1")
@@ -143,8 +150,9 @@ with st.expander("👊 Create New Cycle", expanded=len(st.session_state.cycles) 
         
         pc_rm, pc_inc = "60", def_inc[4]
         with col5: 
-            if variant == "Standard (Power Clean)":
-                pc_rm, pc_inc = st.text_input(f"⚡ Power Clean 3RM", "60"), st.text_input(f"➕ Power Clean Inc", def_inc[4])
+            if st.session_state.temp_variant == "Standard (Power Clean)":
+                pc_rm = st.text_input(f"⚡ Power Clean 3RM", "60")
+                pc_inc = st.text_input(f"➕ Power Clean Inc", def_inc[4])
             else:
                 st.write("Power Clean Disabled")
 
@@ -153,7 +161,7 @@ with st.expander("👊 Create New Cycle", expanded=len(st.session_state.cycles) 
             if not c_name.strip(): st.error("⚠️ Please enter a name!")
             else:
                 st.session_state.cycles.append({
-                    "name": c_name, "variant": variant, "start_date": datetime.now().strftime("%Y-%m-%d"), "weeks": int(c_weeks),
+                    "name": c_name, "variant": st.session_state.temp_variant, "start_date": datetime.now().strftime("%Y-%m-%d"), "weeks": int(c_weeks),
                     "success_log": {m: [False]*int(c_weeks) for m in ["Squat", "Bench", "OHP", "Deadlift", "Power Clean"]},
                     "week_completed_log": [False] * int(c_weeks), "day_completed_log": {}, "weight_log": [float(c_bw)] * int(c_weeks),
                     "lifts": {"Squat": {"rm": float(s_rm), "inc": float(s_inc)}, "Bench": {"rm": float(b_rm), "inc": float(b_inc)},
