@@ -22,6 +22,8 @@ def load_data():
             for cycle in cycles:
                 if "week_completed_log" not in cycle:
                     cycle["week_completed_log"] = [False] * cycle["weeks"]
+                if "day_completed_log" not in cycle:
+                    cycle["day_completed_log"] = {} # Store completed days per week
             return cycles, unit
     return [], "KG"
 
@@ -122,6 +124,7 @@ with st.expander("👊 Create New Cycle", expanded=len(st.session_state.cycles) 
                     "weeks": int(c_weeks),
                     "success_log": {m: [False]*int(c_weeks) for m in ["Squat", "Bench", "OHP", "Deadlift"]},
                     "week_completed_log": [False] * int(c_weeks),
+                    "day_completed_log": {}, # Format: "week_day": True
                     "weight_log": [float(c_bw)] * int(c_weeks),
                     "lifts": {
                         "Squat": {"rm": float(s_rm), "inc": float(s_inc)}, "Bench": {"rm": float(b_rm), "inc": float(b_inc)},
@@ -138,7 +141,7 @@ if st.session_state.cycles:
         with st.container(border=True):
             h1, h2, h3, h4 = st.columns([0.55, 0.15, 0.15, 0.15])
             h1.markdown(f"### ⚡ {cycle['name']}")
-            h1.caption(f"📅 Started on: {cycle.get('start_date', 'N/A')}")
+            h1.caption(f"📅 Started: {cycle.get('start_date', 'N/A')}")
             
             prog_key = f"p_{true_idx}"
             wgt_key = f"w_{true_idx}"
@@ -161,10 +164,10 @@ if st.session_state.cycles:
                         # --- TOP TIMER BAR ---
                         t_col1, t_col2 = st.columns([0.3, 0.7])
                         with t_col1:
-                            rest_choice = st.slider("⏱️ Rest Duration (min)", 1, 10, 3, key=f"rest_sl_{true_idx}_{w_i}")
+                            rest_choice = st.slider("⏱️ Rest (min)", 1, 10, 3, key=f"rest_sl_{true_idx}_{w_i}")
                         with t_col2:
                             timer_place = st.empty()
-                            timer_place.info("Kutucuğu işaretle, geri sayım başlasın! 🚀")
+                            timer_place.info("Check a set to start rest timer 🚀")
 
                         counts = {m: sum(1 for prev_w in range(w_i) if cycle['success_log'][m][prev_w] and cycle['week_completed_log'][prev_w]) for m in ["Squat", "Bench", "OHP", "Deadlift"]}
                         new_bw = st.number_input("Current Bodyweight", value=cycle['weight_log'][w_i], key=f"bw_in_{true_idx}_{w_i}")
@@ -175,77 +178,86 @@ if st.session_state.cycles:
                         is_a = (w_i + 1) % 2 != 0
                         m_p, w_p = ("Bench", "OHP") if is_a else ("OHP", "Bench")
                         
-                        days = [("📅 Monday (Volume)", 0.90, ["Squat", m_p, "Deadlift"]),
-                                ("📅 Wednesday (Light)", 0.70, ["Squat", w_p]),
-                                ("📅 Friday (Intensity)", 1.00, ["Squat", m_p, "Deadlift"])]
+                        days = [("Monday (Volume)", 0.90, ["Squat", m_p, "Deadlift"]),
+                                ("Wednesday (Light)", 0.70, ["Squat", w_p]),
+                                ("Friday (Intensity)", 1.00, ["Squat", m_p, "Deadlift"])]
 
                         lift_emojis = {"Squat": "🏋️", "Bench": "💪", "OHP": "🥥", "Deadlift": "⛓️"}
 
-                        for d_idx, (title, pct, moves) in enumerate(days):
-                            with st.expander(f"### {title}", expanded=False):
+                        for d_idx, (d_name, pct, moves) in enumerate(days):
+                            day_key = f"w{w_i}_{d_name}"
+                            is_day_done = cycle.get('day_completed_log', {}).get(day_key, False)
+                            display_title = f"### 📅 {d_name} {'✅' if is_day_done else ''}"
+                            
+                            with st.expander(display_title, expanded=False):
                                 lift_cols = st.columns(len(moves))
                                 for m_idx, mv in enumerate(moves):
                                     with lift_cols[m_idx]:
                                         current_5rm = cycle['lifts'][mv]['rm'] + (cycle['lifts'][mv]['inc'] * counts[mv])
-                                        current_1rm = calculate_1rm(current_5rm, 5)
                                         calc_w = round_to_plates(current_5rm * pct, smallest_plate)
-                                        
-                                        set_count = 5 if "Monday" in title else (2 if "Wednesday" in title else 1)
+                                        set_count = 5 if "Monday" in d_name else (2 if "Wednesday" in d_name else 1)
                                         
                                         with st.container(border=True):
                                             st.markdown(f"**{lift_emojis.get(mv, '')} {mv}**")
                                             st.markdown(f"#### {set_count}x5 @ {format_weight(calc_w)} {u}")
                                             
-                                            st.write("Sets Tracker:")
+                                            st.write("Sets:")
                                             set_grid = st.columns(set_count)
                                             for s_i in range(set_count):
                                                 with set_grid[s_i]:
-                                                    if st.checkbox(f"S{s_i+1}", key=f"chk_{true_idx}_{w_i}_{title}_{mv}_{s_i}"):
+                                                    if st.checkbox(f"S{s_i+1}", key=f"chk_{true_idx}_{w_i}_{d_name}_{mv}_{s_i}"):
                                                         total_sec = rest_choice * 60
                                                         for sec in range(total_sec, -1, -1):
-                                                            timer_place.error(f"⏱️ REST: {sec//60:02d}:{sec%60:02d} - {mv} S{s_i+1} bitti!")
+                                                            timer_place.error(f"⏱️ RESTING: {sec//60:02d}:{sec%60:02d}")
                                                             time.sleep(1)
-                                                        timer_place.success("🔥 SET BAŞLASIN! HAYDİ KNK!")
+                                                        timer_place.success("🔥 GO! NEXT SET!")
                                                         st.balloons()
 
-                                            with st.expander("🔥 Warm-up"):
+                                            with st.expander("Warm-up"):
                                                 bar_w = 45 if u == "LBS" else 20
                                                 warmups = [(f"Bar x 2x5", bar_w), (f"40% x 5", calc_w * 0.40), (f"60% x 3", calc_w * 0.60), (f"80% x 2", calc_w * 0.80), (f"90% x 1", calc_w * 0.90)]
                                                 for label, val in warmups:
                                                     final_v = max(bar_w, round_to_plates(val, smallest_plate))
                                                     st.write(f"• {label}: **{format_weight(final_v)}**")
 
-                                if "Wednesday" in title:
+                                st.divider()
+                                if not is_day_done:
+                                    if st.button(f"Mark {d_name} as Finished", key=f"btn_done_{day_key}"):
+                                        if 'day_completed_log' not in cycle: cycle['day_completed_log'] = {}
+                                        cycle['day_completed_log'][day_key] = True
+                                        save_data(); st.rerun()
+                                else:
+                                    if st.button(f"Reset {d_name}", key=f"btn_reset_{day_key}"):
+                                        cycle['day_completed_log'][day_key] = False
+                                        save_data(); st.rerun()
+
+                                if "Wednesday" in d_name:
                                     st.info("🦾 **Pullups**: 3 x Max | 🏹 **Back Extensions**: 5 x 10")
 
-                                if "Friday" in title:
+                                if "Friday" in d_name:
                                     st.divider()
                                     st.subheader("🏆 Friday Crush Check")
-                                    st.caption("⚠️ **ÖNEMLİ:** Eğer bu hareketi başarıyla tamamlayamazsan (Fail), kutuyu boş bırak. Bu durumda haftaya ağırlık artışı olmayacaktır!")
+                                    st.caption("⚠️ **IMPORTANT:** If you fail the lift, leave this unchecked. Weight won't increase next week!")
                                     
                                     check_cols = st.columns(len(moves))
                                     for m_idx, mv in enumerate(moves):
                                         with check_cols[m_idx]:
                                             is_success = cycle['success_log'][mv][w_i]
                                             chk = st.checkbox(f"Crushed {mv}", value=is_success, key=f"chk_f_{true_idx}_{w_i}_{mv}")
-                                            
-                                            if chk:
-                                                st.success(f"🔥 {mv} Gelişiyor!")
-                                            else:
-                                                st.warning(f"❌ {mv} Fail (Ağırlık sabit)")
-                                                
+                                            if chk: st.success(f"🔥 Progressing!")
+                                            else: st.warning(f"❌ Weight Stays Same")
                                             if chk != cycle['success_log'][mv][w_i]:
                                                 cycle['success_log'][mv][w_i] = chk
                                                 save_data()
                                     
                                     st.divider()
                                     if not cycle['week_completed_log'][w_i]:
-                                        if st.button("✅ Finish Week", key=f"wd_{true_idx}_{w_i}", use_container_width=True, type="primary"):
+                                        if st.button("✅ Log Entire Week", key=f"wd_{true_idx}_{w_i}", use_container_width=True, type="primary"):
                                             cycle['week_completed_log'][w_i] = True
                                             save_data(); st.rerun()
                                     else:
                                         st.success("Week Logged!")
-                                        if st.button("🔓 Undo", key=f"ud_{true_idx}_{w_i}"):
+                                        if st.button("🔓 Undo Week Log", key=f"ud_{true_idx}_{w_i}"):
                                             cycle['week_completed_log'][w_i] = False
                                             save_data(); st.rerun()
 
