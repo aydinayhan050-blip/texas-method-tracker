@@ -27,10 +27,6 @@ def load_data():
     return [], "KG"
 
 # --- CORE MATH & UTILS ---
-def calculate_1rm(weight, reps):
-    if reps == 1: return weight
-    return weight / (1.0278 - (0.0278 * reps))
-
 def format_weight(weight):
     val = round(float(weight), 2)
     return f"{int(val)}" if val % 1 == 0 else f"{val}"
@@ -47,16 +43,10 @@ def convert_weight(val, to_unit):
 # --- UI CONFIG ---
 st.set_page_config(page_title="Texas Method Tracker", layout="wide")
 
-# THE ABSOLUTE ZERO-DIMMING CSS (NUCLEAR VERSION)
 st.markdown("""
     <style>
-    /* 1. HIDE ALL STATUS SPINNERS */
     div[data-testid="stStatusWidget"] { display: none !important; }
-    
-    /* 2. FORCE FULL VISIBILITY ALWAYS */
     * { opacity: 1 !important; filter: none !important; }
-
-    /* 3. KILL STALE STATE GREY-OUT */
     div.stBlock[data-stale="true"], 
     div[data-testid="stAppViewBlockContainer"] [data-stale="true"],
     .element-container[data-stale="true"] {
@@ -64,14 +54,6 @@ st.markdown("""
         filter: none !important;
         pointer-events: auto !important;
     }
-
-    /* 4. PREVENT SEMI-TRANSPARENT LAYER OVER BUTTONS */
-    button:disabled, input:disabled, .stCheckbox:disabled {
-        opacity: 1 !important;
-        cursor: pointer !important;
-    }
-
-    /* 5. GIANT TIMER STYLING */
     .big-timer {
         font-size: 110px !important;
         font-weight: 900;
@@ -174,7 +156,7 @@ if st.session_state.cycles:
                 tabs = st.tabs([f"Week {i+1} {'✅' if cycle['week_completed_log'][i] else ''}" for i in range(cycle['weeks'])])
                 for w_i in range(cycle['weeks']):
                     with tabs[w_i]:
-                        # --- TIMER SECTION ---
+                        # TIMER
                         t_col1, t_col2 = st.columns([0.3, 0.7])
                         with t_col1: rest_choice = st.slider("⏱️ Rest (min)", 1, 10, 3, key=f"rs_{t_idx}_{w_i}")
                         with t_col2:
@@ -184,7 +166,9 @@ if st.session_state.cycles:
                         cycle['weight_log'][w_i] = st.number_input(f"Bodyweight (BW - {u})", value=cycle['weight_log'][w_i], key=f"bw_in_{t_idx}_{w_i}")
                         st.divider()
 
-                        counts = {m: sum(1 for prev in range(w_i) if cycle['success_log'][m][prev] and cycle['week_completed_log'][prev]) for m in ["Squat", "Bench", "OHP", "Deadlift"]}
+                        # CALC LOGIC: Increase weight ONLY if successful in PREVIOUS weeks
+                        counts = {m: sum(1 for prev in range(w_i) if cycle['success_log'][m][prev]) for m in ["Squat", "Bench", "OHP", "Deadlift"]}
+                        
                         is_a = (w_i + 1) % 2 != 0
                         m_p, w_p = ("Bench", "OHP") if is_a else ("OHP", "Bench")
                         
@@ -201,6 +185,7 @@ if st.session_state.cycles:
                                 lift_cols = st.columns(len(moves))
                                 for m_idx, mv in enumerate(moves):
                                     with lift_cols[m_idx]:
+                                        # Base Weight + (Increments * Successful previous weeks)
                                         c_rm = cycle['lifts'][mv]['rm'] + (cycle['lifts'][mv]['inc'] * counts[mv])
                                         calc_w = round_to_plates(c_rm * pct, smallest_plate)
                                         set_count = 5 if "Monday" in d_name else (2 if "Wednesday" in d_name else 1)
@@ -209,7 +194,6 @@ if st.session_state.cycles:
                                             st.markdown(f"#### {set_count}x5 @ {format_weight(calc_w)} {u}")
                                             for s_i in range(set_count):
                                                 if st.checkbox(f"S{s_i+1}", key=f"ck_{t_idx}_{w_i}_{d_name}_{mv}_{s_i}"):
-                                                    # TIMER ENGINE
                                                     total = rest_choice * 60
                                                     prog_bar = st.progress(0)
                                                     for s in range(total, -1, -1):
@@ -241,7 +225,9 @@ if st.session_state.cycles:
                                     cc = st.columns(len(moves))
                                     for mi, mv in enumerate(moves):
                                         with cc[mi]:
+                                            # Marking success here directly impacts next week's 'counts'
                                             cycle['success_log'][mv][w_i] = st.checkbox(f"Crushed {mv}", value=cycle['success_log'][mv][w_i], key=f"f_{t_idx}_{w_i}_{mv}")
+                                    
                                     if st.button("✅ Log Entire Week", key=f"fw_{t_idx}_{w_i}", use_container_width=True, type="primary"):
                                         cycle['week_completed_log'][w_i] = True
                                         save_data(); st.rerun()
@@ -255,7 +241,8 @@ if st.session_state.cycles:
                     for lift, color in zip(["Squat", "Bench", "OHP", "Deadlift"], ["#FF4B4B", "#1C83E1", "#FFFFFF", "#FFC300"]):
                         y_vals = []
                         for w in range(cycle['weeks']):
-                            c = sum(1 for prev in range(w) if cycle['success_log'].get(lift, [False]*20)[prev] and cycle['week_completed_log'][prev])
+                            # Progress graph also uses the success log
+                            c = sum(1 for prev in range(w) if cycle['success_log'].get(lift, [False]*20)[prev])
                             y_vals.append(cycle['lifts'].get(lift, {'rm':0})['rm'] + (cycle['lifts'].get(lift, {'inc':0})['inc'] * c))
                         fig_w.add_trace(go.Scatter(x=weeks_range, y=y_vals, name=lift, line=dict(color=color, width=4), mode='lines+markers'))
                     fig_w.update_layout(title="Lifts Progress", template="plotly_dark" if theme_choice == "Deep Dark" else "plotly_white")
