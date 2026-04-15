@@ -168,7 +168,7 @@ if st.session_state.cycles:
                         is_a = (w_i + 1) % 2 != 0
                         m_p, w_p = ("Bench", "OHP") if is_a else ("OHP", "Bench")
                         
-                        cols = st.columns(3)
+                        # GÜNLER ARTIK TEK SÜTUN (ALT ALTA EXPANDER OLMASI İÇİN)
                         days = [("📅 Monday (Volume)", 0.90, ["Squat", m_p, "Deadlift"]),
                                 ("📅 Wednesday (Light)", 0.70, ["Squat", w_p]),
                                 ("📅 Friday (Intensity)", 1.00, ["Squat", m_p, "Deadlift"])]
@@ -176,10 +176,12 @@ if st.session_state.cycles:
                         lift_emojis = {"Squat": "🏋️", "Bench": "💪", "OHP": "🥥", "Deadlift": "⛓️"}
 
                         for d_idx, (title, pct, moves) in enumerate(days):
-                            with cols[d_idx]:
-                                # BURASI GÜNCEL: GÜNLER ARTIK DARALTILABİLİR (EXPANDER)
-                                with st.expander(title, expanded=("Monday" in title)):
-                                    for mv in moves:
+                            # Her gün ana bir expander içine alındı
+                            with st.expander(f"### {title}", expanded=False):
+                                # Hareketleri yan yana 3 sütun yapalım ki içinde çok uzamasın
+                                lift_cols = st.columns(len(moves))
+                                for m_idx, mv in enumerate(moves):
+                                    with lift_cols[m_idx]:
                                         current_5rm = cycle['lifts'][mv]['rm'] + (cycle['lifts'][mv]['inc'] * counts[mv])
                                         current_1rm = calculate_1rm(current_5rm, 5)
                                         calc_w = round_to_plates(current_5rm * pct, smallest_plate)
@@ -189,38 +191,41 @@ if st.session_state.cycles:
                                         reps_str = "5x5" if "Monday" in title else ("2x5" if "Wednesday" in title else "1x5")
                                         
                                         with st.container(border=True):
-                                            st.markdown(f"**{lift_emojis.get(mv, '')} {mv}**: {reps_str} @ **{format_weight(calc_w)} {u}**")
+                                            st.markdown(f"**{lift_emojis.get(mv, '')} {mv}**")
+                                            st.markdown(f"#### {reps_str} @ {format_weight(calc_w)} {u}")
                                             st.caption(f"*(%{p_1rm} 1RM / %{p_5rm} 5RM)*")
                                             
-                                            with st.expander("🔥 Warm-up Sets"):
+                                            with st.expander("🔥 Warm-up"):
                                                 bar_w = 45 if u == "LBS" else 20
                                                 warmups = [(f"Bar x 2 x 5", bar_w), (f"40% x 1 x 5", calc_w * 0.40), (f"60% x 1 x 3", calc_w * 0.60), (f"80% x 1 x 2", calc_w * 0.80), (f"90% x 1 x 1", calc_w * 0.90)]
                                                 for label, val in warmups:
                                                     final_v = max(bar_w, round_to_plates(val, smallest_plate))
-                                                    st.write(f"• {label}: **{format_weight(final_v)} {u}**")
+                                                    st.write(f"• {label}: **{format_weight(final_v)}**")
 
-                                    if "Wednesday" in title:
-                                        st.success("🦾 **Pullups**: 3 x Max")
-                                        st.success("🏹 **Back Extensions**: 5 x 10")
+                                if "Wednesday" in title:
+                                    st.info("🦾 **Pullups**: 3 x Max | 🏹 **Back Extensions**: 5 x 10")
 
-                                    if "Friday" in title:
-                                        st.write("🏆 **Friday Crush Check:**")
-                                        for mv in moves:
+                                if "Friday" in title:
+                                    st.divider()
+                                    st.write("🏆 **Friday Crush Check:**")
+                                    check_cols = st.columns(len(moves))
+                                    for m_idx, mv in enumerate(moves):
+                                        with check_cols[m_idx]:
                                             chk = st.checkbox(f"Crushed {mv}", value=cycle['success_log'][mv][w_i], key=f"chk_{true_idx}_{w_i}_{mv}")
                                             if chk != cycle['success_log'][mv][w_i]:
                                                 cycle['success_log'][mv][w_i] = chk
                                                 save_data()
-                                        
-                                        st.divider()
-                                        if not cycle['week_completed_log'][w_i]:
-                                            if st.button("✅ Week Done", key=f"wd_{true_idx}_{w_i}", use_container_width=True, type="primary"):
-                                                cycle['week_completed_log'][w_i] = True
-                                                save_data(); st.rerun()
-                                        else:
-                                            st.success("Week Logged!")
-                                            if st.button("🔓 Undo", key=f"ud_{true_idx}_{w_i}"):
-                                                cycle['week_completed_log'][w_i] = False
-                                                save_data(); st.rerun()
+                                    
+                                    st.divider()
+                                    if not cycle['week_completed_log'][w_i]:
+                                        if st.button("✅ Finish Week", key=f"wd_{true_idx}_{w_i}", use_container_width=True, type="primary"):
+                                            cycle['week_completed_log'][w_i] = True
+                                            save_data(); st.rerun()
+                                    else:
+                                        st.success("Week Logged!")
+                                        if st.button("🔓 Undo", key=f"ud_{true_idx}_{w_i}"):
+                                            cycle['week_completed_log'][w_i] = False
+                                            save_data(); st.rerun()
 
             if st.session_state[prog_key]:
                 st.divider()
@@ -228,18 +233,19 @@ if st.session_state.cycles:
                 c1, c2 = st.columns(2)
                 with c1:
                     fig_w = go.Figure()
-                    for lift, color in zip(["Squat", "Bench", "OHP", "Deadlift"], ["#FF4B4B", "#1C83E1", "#FFFFFF", "#FFC300"]):
+                    for lift, color in zip(["Squat", "Value", "Bench", "OHP", "Deadlift"], ["#FF4B4B", "#1C83E1", "#FFFFFF", "#FFC300"]):
+                        if lift not in cycle['lifts'] and lift != "Value": continue
                         y_vals = []
                         for w in range(cycle['weeks']):
-                            c = sum(1 for prev_w in range(w) if cycle['success_log'][lift][prev_w] and cycle['week_completed_log'][prev_w])
-                            y_vals.append(cycle['lifts'][lift]['rm'] + (cycle['lifts'][lift]['inc'] * c))
+                            c = sum(1 for prev_w in range(w) if cycle['success_log'].get(lift, [False]*20)[prev_w] and cycle['week_completed_log'][prev_w])
+                            y_vals.append(cycle['lifts'].get(lift, {'rm':0})['rm'] + (cycle['lifts'].get(lift, {'inc':0})['inc'] * c))
                         fig_w.add_trace(go.Scatter(x=weeks_range, y=y_vals, name=lift, line=dict(color=color, width=4), mode='lines+markers'))
-                    fig_w.update_layout(title="Lifts Progress", height=450, template="plotly_dark" if theme_choice == "Deep Dark" else "plotly_white", yaxis=dict(autorange=True, fixedrange=False))
+                    fig_w.update_layout(title="Lifts Progress", height=450, template="plotly_dark" if theme_choice == "Deep Dark" else "plotly_white")
                     st.plotly_chart(fig_w, use_container_width=True)
                 with c2:
                     fig_p = go.Figure()
                     fig_p.add_trace(go.Scatter(x=weeks_range, y=cycle['weight_log'], name="BW", line=dict(color="#00C49A", width=4), mode='lines+markers'))
-                    fig_p.update_layout(title="Bodyweight Tracker", height=450, template="plotly_dark" if theme_choice == "Deep Dark" else "plotly_white", yaxis=dict(autorange=True, fixedrange=False))
+                    fig_p.update_layout(title="Bodyweight Tracker", height=450, template="plotly_dark" if theme_choice == "Deep Dark" else "plotly_white")
                     st.plotly_chart(fig_p, use_container_width=True)
 else:
     st.info("No active cycles. Name one and let's go!")
