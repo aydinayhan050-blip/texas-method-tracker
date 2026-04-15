@@ -321,8 +321,8 @@ if st.session_state.cycles:
                                 if "Friday" not in d_name:
                                     if "Monday" in d_name and cycle.get("variant") == "Standard (Power Clean)":
                                         st.subheader("⚡ Power Clean Checklist")
-                                        # GÜZEL AÇIKLAMA BURADA
-                                        st.caption("ℹ️ **Olay Ne?** Eğer bugün tüm setleri nizami şekilde bitirdiysen bunu işaretle. Tiklersen haftaya ağırlığın otomatik olarak artacak. Ezemediysen boş bırak, haftaya aynı kiloda kalıp formu oturturuz.")
+                                        # ENGLISH DESCRIPTION HERE
+                                        st.caption("ℹ️ **What's the play?** If you crushed every set with solid form today, check this box. Doing so triggers a weight increase for next week. If you struggled or your form was shit, leave it blank—we'll stay at this weight to dial it in.")
                                         pc_key = f"pc_success_{t_idx}_{w_i}"
                                         cycle['success_log']["Power Clean"][w_i] = st.checkbox("⚡ Crushed Power Clean", value=cycle['success_log']["Power Clean"][w_i], key=pc_key)
                                         st.write("---")
@@ -336,8 +336,8 @@ if st.session_state.cycles:
                                     
                                 else:
                                     st.subheader("🏆 Friday Checklist")
-                                    # GÜZEL AÇIKLAMA BURADA
-                                    st.caption("ℹ️ **Olay Ne?** Cuma günü hesap günü! Başarıyla bitirdiğin hareketleri tikle. İşaretlediklerin haftaya seçtiğin artış miktarı kadar ağır gelecek, yetişemediklerin ise yerinde sayacak. Kendine dürüst ol aslanım!")
+                                    # ENGLISH DESCRIPTION HERE
+                                    st.caption("ℹ️ **Judgment Day!** Mark the lifts you successfully smashed today. The checked ones will get heavier next week based on your chosen increments. If you missed reps, leave 'em blank and stay put. Don't bullshit yourself, boss!")
                                     cc = st.columns(len(moves))
                                     for mi, mv in enumerate(moves):
                                         with cc[mi]:
