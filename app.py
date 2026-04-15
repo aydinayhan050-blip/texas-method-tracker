@@ -25,15 +25,6 @@ def load_data():
             return cycles, unit
     return [], "KG"
 
-# --- TIMER FUNCTION ---
-def run_timer(seconds, key_prefix):
-    placeholder = st.empty()
-    for i in range(seconds, 0, -1):
-        placeholder.metric("⏱️ Rest Time", f"{i//60:02d}:{i%60:02d}")
-        time.sleep(1)
-    placeholder.error("🔥 SET BAŞLASIN! HAYDİ KNK!")
-    st.balloons()
-
 # --- CORE MATH ---
 def calculate_1rm(weight, reps):
     if reps == 1: return weight
@@ -169,6 +160,14 @@ if st.session_state.cycles:
                 
                 for w_i in range(cycle['weeks']):
                     with tabs[w_i]:
+                        # --- TOP TIMER BAR ---
+                        t_col1, t_col2 = st.columns([0.3, 0.7])
+                        with t_col1:
+                            rest_choice = st.slider("⏱️ Rest Duration (min)", 1, 10, 3, key=f"rest_sl_{true_idx}_{w_i}")
+                        with t_col2:
+                            timer_place = st.empty()
+                            timer_place.info("Kutucuğu işaretle, geri sayım başlasın! 🚀")
+
                         counts = {m: sum(1 for prev_w in range(w_i) if cycle['success_log'][m][prev_w] and cycle['week_completed_log'][prev_w]) for m in ["Squat", "Bench", "OHP", "Deadlift"]}
                         new_bw = st.number_input("Current Bodyweight", value=cycle['weight_log'][w_i], key=f"bw_in_{true_idx}_{w_i}")
                         if new_bw != cycle['weight_log'][w_i]:
@@ -186,9 +185,6 @@ if st.session_state.cycles:
 
                         for d_idx, (title, pct, moves) in enumerate(days):
                             with st.expander(f"### {title}", expanded=False):
-                                # Rest time logic by day
-                                rest_time = 120 if "Monday" in title else (60 if "Wednesday" in title else 300)
-                                
                                 lift_cols = st.columns(len(moves))
                                 for m_idx, mv in enumerate(moves):
                                     with lift_cols[m_idx]:
@@ -196,27 +192,24 @@ if st.session_state.cycles:
                                         current_1rm = calculate_1rm(current_5rm, 5)
                                         calc_w = round_to_plates(current_5rm * pct, smallest_plate)
                                         
-                                        p_1rm = custom_round_percent((calc_w / current_1rm) * 100)
-                                        p_5rm = custom_round_percent((calc_w / current_5rm) * 100)
-                                        
-                                        # Set counts based on the day
                                         set_count = 5 if "Monday" in title else (2 if "Wednesday" in title else 1)
-                                        reps_label = "5"
                                         
                                         with st.container(border=True):
                                             st.markdown(f"**{lift_emojis.get(mv, '')} {mv}**")
-                                            st.markdown(f"#### {set_count}x{reps_label} @ {format_weight(calc_w)} {u}")
+                                            st.markdown(f"#### {set_count}x5 @ {format_weight(calc_w)} {u}")
                                             
-                                            # --- SET TRACKER & AUTO TIMER ---
-                                            st.write("Sets:")
-                                            set_cols = st.columns(set_count)
+                                            st.write("Sets Tracker:")
+                                            set_grid = st.columns(set_count)
                                             for s_i in range(set_count):
-                                                with set_cols[s_i]:
-                                                    s_key = f"set_{true_idx}_{w_i}_{title}_{mv}_{s_i}"
-                                                    if st.checkbox(f"{s_i+1}", key=s_key):
-                                                        # If it's not the last set, run timer
-                                                        if s_i < set_count - 1:
-                                                            run_timer(rest_time, s_key)
+                                                with set_grid[s_i]:
+                                                    if st.checkbox(f"S{s_i+1}", key=f"chk_{true_idx}_{w_i}_{title}_{mv}_{s_i}"):
+                                                        # TRIGGER CENTRAL TIMER
+                                                        total_sec = rest_choice * 60
+                                                        for sec in range(total_sec, -1, -1):
+                                                            timer_place.error(f"⏱️ REST: {sec//60:02d}:{sec%60:02d} - {mv} S{s_i+1} bitti!")
+                                                            time.sleep(1)
+                                                        timer_place.success("🔥 SET BAŞLASIN! HAYDİ KNK!")
+                                                        st.balloons()
 
                                             with st.expander("🔥 Warm-up"):
                                                 bar_w = 45 if u == "LBS" else 20
@@ -234,7 +227,7 @@ if st.session_state.cycles:
                                     check_cols = st.columns(len(moves))
                                     for m_idx, mv in enumerate(moves):
                                         with check_cols[m_idx]:
-                                            chk = st.checkbox(f"Crushed {mv}", value=cycle['success_log'][mv][w_i], key=f"chk_{true_idx}_{w_i}_{mv}")
+                                            chk = st.checkbox(f"Crushed {mv}", value=cycle['success_log'][mv][w_i], key=f"chk_f_{true_idx}_{w_i}_{mv}")
                                             if chk != cycle['success_log'][mv][w_i]:
                                                 cycle['success_log'][mv][w_i] = chk
                                                 save_data()
