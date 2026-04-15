@@ -48,11 +48,9 @@ st.set_page_config(page_title="Texas Method Tracker", layout="wide")
 st.markdown("""
     <script>
     function notifyEnd() {
-        // Vibrate for 500ms
         if (navigator.vibrate) {
             navigator.vibrate(500);
         }
-        // Play beep sound
         var context = new (window.AudioContext || window.webkitAudioContext)();
         var osc = context.createOscillator();
         osc.type = 'sine';
@@ -210,23 +208,27 @@ if st.session_state.cycles:
                                             st.markdown(f"**{lift_emojis.get(mv, '')} {mv}**")
                                             st.markdown(f"#### {set_count}x5 @ {format_weight(calc_w)} {u}")
                                             
-                                            # Box only checkboxes
+                                            # Box checkboxes with strictly one-time timer execution
                                             for s_i in range(set_count):
                                                 cb_key = f"ck_{t_idx}_{w_i}_{d_name}_{mv}_{s_i}"
-                                                if st.checkbox(f"Set {s_i+1}", key=cb_key):
-                                                    # Start global timer when a set is checked
+                                                prev_state_key = f"prev_{cb_key}"
+                                                
+                                                if prev_state_key not in st.session_state:
+                                                    st.session_state[prev_state_key] = False
+                                                
+                                                current_state = st.checkbox(f"Set {s_i+1}", key=cb_key)
+                                                
+                                                if current_state and not st.session_state[prev_state_key]:
+                                                    st.session_state[prev_state_key] = True
                                                     total_seconds = rest_choice * 60
-                                                    prog_bar = st.progress(0)
                                                     for s in range(total_seconds, -1, -1):
                                                         m, sc = divmod(s, 60)
                                                         timer_place.markdown(f'<p class="big-timer">{m:02d}:{sc:02d}</p>', unsafe_allow_html=True)
-                                                        prog_bar.progress((total_seconds-s)/total_seconds)
                                                         time.sleep(1)
-                                                    
-                                                    # Notification (JavaScript trigger)
                                                     st.components.v1.html("<script>window.parent.notifyEnd();</script>", height=0)
                                                     timer_place.markdown('<p class="ready-text">READY! 🔥</p>', unsafe_allow_html=True)
-                                                    prog_bar.empty()
+                                                elif not current_state and st.session_state[prev_state_key]:
+                                                    st.session_state[prev_state_key] = False
                                             
                                             with st.expander("Warm-up"):
                                                 bar_w = 45 if u == "LBS" else 20
@@ -237,9 +239,12 @@ if st.session_state.cycles:
                                 
                                 st.divider()
                                 if "Friday" not in d_name:
-                                    if st.button(f"Mark {d_name} Finished", key=f"btn_v2_{d_key}", use_container_width=True):
-                                        cycle['day_completed_log'][d_key] = True
-                                        save_data(); st.rerun()
+                                    if not is_done:
+                                        if st.button(f"Mark {d_name} Finished", key=f"btn_v2_{d_key}", use_container_width=True):
+                                            cycle['day_completed_log'][d_key] = True
+                                            save_data(); st.rerun()
+                                    else:
+                                        st.success(f"✅ {d_name} Finished!")
                                 else:
                                     st.subheader("🏆 Friday Checklist")
                                     cc = st.columns(len(moves))
@@ -249,10 +254,13 @@ if st.session_state.cycles:
                                             is_success = st.checkbox(f"Crushed {mv}", value=cycle['success_log'][mv][w_i], key=cb_key)
                                             cycle['success_log'][mv][w_i] = is_success
                                     
-                                    if st.button("🏁 Finish & Log Week", key=f"final_btn_{t_idx}_{w_i}", use_container_width=True, type="primary"):
-                                        cycle['day_completed_log'][d_key] = True
-                                        cycle['week_completed_log'][w_i] = True
-                                        save_data(); st.rerun()
+                                    if not is_done:
+                                        if st.button("🏁 Finish & Log Week", key=f"final_btn_{t_idx}_{w_i}", use_container_width=True, type="primary"):
+                                            cycle['day_completed_log'][d_key] = True
+                                            cycle['week_completed_log'][w_i] = True
+                                            save_data(); st.rerun()
+                                    else:
+                                        st.success("🏆 Week Finished and Logged!")
 
             if st.session_state[p_key]:
                 st.divider()
