@@ -30,6 +30,10 @@ def load_data():
             return cycles, unit
     return [], "KG"
 
+def update_success_log(t_idx, w_i, mv, key):
+    st.session_state.cycles[t_idx]['success_log'][mv][w_i] = st.session_state[key]
+    save_data()
+
 # --- CORE MATH & UTILS ---
 def format_weight(weight):
     val = round(float(weight), 2)
@@ -350,7 +354,7 @@ if st.session_state.cycles:
                                         # ENGLISH DESCRIPTION HERE
                                         st.caption("ℹ️ **What's the play?** If you crushed every set with solid form today, check this box. Doing so triggers a weight increase for next week. If you struggled or your form was shit, leave it blank—we'll stay at this weight to dial it in.")
                                         pc_key = f"pc_success_{t_idx}_{w_i}"
-                                        cycle['success_log']["Power Clean"][w_i] = st.checkbox("⚡ Crushed Power Clean", value=cycle['success_log']["Power Clean"][w_i], key=pc_key)
+                                        cycle['success_log']["Power Clean"][w_i] = st.checkbox("⚡ Crushed Power Clean", value=cycle['success_log']["Power Clean"][w_i], key=pc_key, on_change=update_success_log, kwargs={'t_idx': t_idx, 'w_i': w_i, 'mv': "Power Clean", 'key': pc_key})
                                         st.write("---")
                                     
                                     if not is_done:
@@ -368,7 +372,7 @@ if st.session_state.cycles:
                                     for mi, mv in enumerate(moves):
                                         with cc[mi]:
                                             cb_key = f"success_chk_{t_idx}_{w_i}_{mv}"
-                                            cycle['success_log'][mv][w_i] = st.checkbox(f"Crushed {mv}", value=cycle['success_log'][mv][w_i], key=cb_key)
+                                            cycle['success_log'][mv][w_i] = st.checkbox(f"Crushed {mv}", value=cycle['success_log'][mv][w_i], key=cb_key, on_change=update_success_log, kwargs={'t_idx': t_idx, 'w_i': w_i, 'mv': mv, 'key': cb_key})
 
                                     if not is_done:
                                         if st.button("🏁 Finish & Log Week", key=f"final_btn_{t_idx}_{w_i}", use_container_width=True, type="primary"):
