@@ -48,9 +48,15 @@ def convert_weight(val, to_unit):
 st.set_page_config(page_title="Texas Method Tracker", layout="wide")
 
 # --- CSS FOR DARK/LIGHT MODE ---
-theme_choice = st.sidebar.selectbox("🎨 Theme", ["Deep Dark", "Light"])
+if 'theme' not in st.sidebar:
+    theme_choice = st.sidebar.selectbox("🎨 Theme", ["Deep Dark", "Light"])
+else:
+    theme_choice = st.session_state.theme
+
 bg_color = "#0e1117" if theme_choice == "Deep Dark" else "#ffffff"
 text_color = "#ffffff" if theme_choice == "Deep Dark" else "#000000"
+# Bu kısım siyah kutuların içindeki metni beyaz yapar (özellikle light mode için)
+card_text_color = "#ffffff" 
 
 st.markdown(f"""
     <script>
@@ -68,21 +74,33 @@ st.markdown(f"""
     <style>
     div[data-testid="stStatusWidget"] {{ display: none !important; }}
     .stApp {{ background-color: {bg_color}; color: {text_color}; }}
-    /* Force text color for generic elements in Light Mode */
-    .stApp p, .stApp span, .stApp label, .stApp div {{ color: {text_color}; }}
+    
+    /* Standart metinlerin rengini ayarla */
+    .stApp p, .stApp span, .stApp label {{ color: {text_color}; }}
+
+    /* Siyah kutuların (container) içindeki yazıların okunmasını sağla */
+    div[data-testid="stVerticalBlockBorderWrapper"] {{
+        color: {card_text_color} !important;
+    }}
+    div[data-testid="stVerticalBlockBorderWrapper"] p, 
+    div[data-testid="stVerticalBlockBorderWrapper"] span, 
+    div[data-testid="stVerticalBlockBorderWrapper"] label,
+    div[data-testid="stVerticalBlockBorderWrapper"] h4 {{
+        color: {card_text_color} !important;
+    }}
     
     .big-timer {{
         font-size: 110px !important;
         font-weight: 900;
         text-align: center;
-        color: #FF4B4B;
+        color: #FF4B4B !important;
         margin: 0px;
         line-height: 1;
         font-family: 'Courier New', Courier, monospace;
     }}
     .ready-text {{
         font-size: 75px !important;
-        color: #28a745;
+        color: #28a745 !important;
         font-weight: 900;
         text-align: center;
     }}
@@ -135,13 +153,7 @@ u = st.session_state.current_unit
 def_inc = ["5", "5", "5", "10", "5"] if u == "LBS" else ["2.5", "2.5", "2.5", "5", "2.5"]
 
 with st.expander("👊 Create New Cycle", expanded=len(st.session_state.cycles) == 0):
-    if 'temp_variant' not in st.session_state:
-        st.session_state.temp_variant = "Modern (Deadlift Focus)"
-    
-    variant_choice = st.radio("🏋️ Select Method Variant", 
-                             ["Modern (Deadlift Focus)", "Standard (Power Clean)"], 
-                             index=0 if st.session_state.temp_variant == "Modern (Deadlift Focus)" else 1)
-    st.session_state.temp_variant = variant_choice
+    variant_choice = st.radio("🏋️ Select Method Variant", ["Modern (Deadlift Focus)", "Standard (Power Clean)"])
     
     with st.form("new_cycle_form", clear_on_submit=True):
         c_name = st.text_input("📝 Cycle Name", placeholder="e.g. Strength Phase 1")
@@ -156,18 +168,17 @@ with st.expander("👊 Create New Cycle", expanded=len(st.session_state.cycles) 
         
         pc_rm, pc_inc = "60", def_inc[4]
         with col5: 
-            if st.session_state.temp_variant == "Standard (Power Clean)":
+            if variant_choice == "Standard (Power Clean)":
                 pc_rm = st.text_input(f"⚡ Power Clean 3RM", "60")
                 pc_inc = st.text_input(f"➕ Power Clean Inc", def_inc[4])
-            else:
-                st.write("Power Clean Disabled")
+            else: st.write("Power Clean Disabled")
 
         submit = st.form_submit_button("🚀 Start Cycle")
         if submit:
             if not c_name.strip(): st.error("⚠️ Please enter a name!")
             else:
                 st.session_state.cycles.append({
-                    "name": c_name, "variant": st.session_state.temp_variant, "start_date": datetime.now().strftime("%Y-%m-%d"), "weeks": int(c_weeks),
+                    "name": c_name, "variant": variant_choice, "start_date": datetime.now().strftime("%Y-%m-%d"), "weeks": int(c_weeks),
                     "success_log": {m: [False]*int(c_weeks) for m in ["Squat", "Bench", "OHP", "Deadlift", "Power Clean"]},
                     "week_completed_log": [False] * int(c_weeks), "day_completed_log": {}, "weight_log": [float(c_bw)] * int(c_weeks),
                     "lifts": {"Squat": {"rm": float(s_rm), "inc": float(s_inc)}, "Bench": {"rm": float(b_rm), "inc": float(b_inc)},
@@ -206,8 +217,8 @@ if st.session_state.cycles:
                         t_col1, t_col2 = st.columns([0.3, 0.7])
                         with t_col1: 
                             rest_choice = st.slider("⏱️ Rest (min)", 1, 10, 3, key=f"rs_{t_idx}_{w_i}")
-                            pause_btn = st.button("⏸️ Pause / ▶️ Resume", key=f"pause_{t_idx}_{w_i}", use_container_width=True)
-                            if pause_btn: st.session_state.timer_paused = not st.session_state.timer_paused
+                            if st.button("⏸️ Pause / ▶️ Resume", key=f"pause_{t_idx}_{w_i}", use_container_width=True):
+                                st.session_state.timer_paused = not st.session_state.timer_paused
                         with t_col2:
                             timer_place = st.empty()
                             timer_place.markdown('<p class="big-timer">00:00</p>', unsafe_allow_html=True)
@@ -215,8 +226,8 @@ if st.session_state.cycles:
                         cycle['weight_log'][w_i] = st.number_input(f"BW ({u})", value=cycle['weight_log'][w_i], key=f"bw_in_{t_idx}_{w_i}")
                         st.divider()
 
-                        # --- POWER CLEAN SPECIFIC LOGIC ---
-                        # Count successes until current week
+                        # --- CALCULATIONS ---
+                        # Power Clean artışını kesinleştirmek için log'u kontrol et
                         counts = {m: sum(1 for prev in range(w_i) if cycle['success_log'][m][prev]) for m in ["Squat", "Bench", "OHP", "Deadlift", "Power Clean"]}
                         
                         is_a = (w_i + 1) % 2 != 0
@@ -239,6 +250,7 @@ if st.session_state.cycles:
                                     with lift_cols[m_idx]:
                                         is_accessory = mv in ["Chin-ups", "Back Extensions"]
                                         if not is_accessory:
+                                            # Ağırlık Artış Mantığı
                                             c_rm = cycle['lifts'][mv]['rm'] + (cycle['lifts'][mv]['inc'] * counts[mv])
                                             calc_w = round_to_plates(c_rm * pct, smallest_plate)
                                             set_count = 3 if mv == "Power Clean" else (5 if "Monday" in d_name else (2 if "Wednesday" in d_name else 1))
@@ -260,9 +272,7 @@ if st.session_state.cycles:
 
                                                 for s_i in range(set_count):
                                                     cb_key = f"ck_{t_idx}_{w_i}_{d_name}_{mv}_{s_i}"
-                                                    if st.checkbox(f"Set {s_i+1}", key=cb_key):
-                                                        # Timer Logic (Simplified for flow)
-                                                        pass
+                                                    if st.checkbox(f"Set {s_i+1}", key=cb_key): pass
                                             else:
                                                 st.markdown("#### 3 Sets")
                                                 st.write("Failure" if mv == "Chin-ups" else "10-15 Reps")
@@ -271,7 +281,7 @@ if st.session_state.cycles:
                                 if "Friday" not in d_name:
                                     if "Monday" in d_name and cycle.get("variant") == "Standard (Power Clean)":
                                         st.subheader("⚡ Power Clean Checklist")
-                                        st.caption("ℹ️ **How it works:** Check this if you crushed all sets of Power Clean. It increases next week's weight.")
+                                        st.caption("ℹ️ **Başarı Notu:** Power Clean'i bugün tamamladıysan işaretle, sonraki hafta ağırlık artacaktır.")
                                         pc_key = f"pc_success_{t_idx}_{w_i}"
                                         cycle['success_log']["Power Clean"][w_i] = st.checkbox("⚡ Crushed Power Clean", value=cycle['success_log']["Power Clean"][w_i], key=pc_key)
                                         st.write("---")
@@ -281,7 +291,6 @@ if st.session_state.cycles:
                                     elif is_done: st.success(f"✅ {d_name} Finished!")
                                 else:
                                     st.subheader("🏆 Friday Checklist")
-                                    st.caption("ℹ️ **How it works:** Check the lifts you successfully completed. Successful lifts increase next week.")
                                     cc = st.columns(len(moves))
                                     for mi, mv in enumerate(moves):
                                         with cc[mi]:
