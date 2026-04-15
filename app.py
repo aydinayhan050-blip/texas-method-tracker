@@ -23,7 +23,6 @@ def load_data():
                 if "week_completed_log" not in cycle: cycle["week_completed_log"] = [False] * cycle["weeks"]
                 if "day_completed_log" not in cycle: cycle["day_completed_log"] = {}
                 if "weight_log" not in cycle: cycle["weight_log"] = [80.0] * cycle["weeks"]
-                # Migration for old cycles to support Power Clean if missing
                 if "success_log" not in cycle: cycle["success_log"] = {m: [False]*cycle["weeks"] for m in ["Squat", "Bench", "OHP", "Deadlift", "Power Clean"]}
                 if "Power Clean" not in cycle["success_log"]: cycle["success_log"]["Power Clean"] = [False]*cycle["weeks"]
                 if "variant" not in cycle: cycle["variant"] = "Modern (Deadlift Focus)"
@@ -110,6 +109,8 @@ with st.sidebar:
         st.session_state.cycles = []
         if os.path.exists(DB_FILE): os.remove(DB_FILE)
         st.rerun()
+    
+    st.markdown("<div style='text-align: center; opacity: 0.5; font-size: 0.8em; margin-top: 10px;'>by Aydin Ayhan</div>", unsafe_allow_html=True)
 
 st.markdown(f"<style>.stApp {{ background-color: {bg_color}; }}</style>", unsafe_allow_html=True)
 st.title("Texas Method Training Tracker")
@@ -119,7 +120,7 @@ u = st.session_state.current_unit
 def_inc = ["5", "5", "5", "10", "5"] if u == "LBS" else ["2.5", "2.5", "2.5", "5", "2.5"]
 
 with st.expander("👊 Create New Cycle", expanded=len(st.session_state.cycles) == 0):
-    variant = st.radio("🏋️ Select Method Variant", ["Modern (Deadlift Focus)", "Standard (Olympic Clean)"], 
+    variant = st.radio("🏋️ Select Method Variant", ["Modern (Deadlift Focus)", "Standard (Power Clean)"], 
                        help="Standard uses Power Cleans on Monday to manage fatigue for Friday intensity.")
     
     with st.form("new_cycle_form", clear_on_submit=True):
@@ -133,13 +134,12 @@ with st.expander("👊 Create New Cycle", expanded=len(st.session_state.cycles) 
         with col3: o_rm, o_inc = st.text_input(f"🥥 OHP 5RM", "50"), st.text_input(f"➕ OHP Inc", def_inc[2])
         with col4: d_rm, d_inc = st.text_input(f"🔥 Deadlift 5RM", "140"), st.text_input(f"➕ Deadlift Inc", def_inc[3])
         
-        # Power Clean logic for Standard variant
         pc_rm, pc_inc = "60", def_inc[4]
         with col5: 
-            if variant == "Standard (Olympic Clean)":
-                pc_rm, pc_inc = st.text_input(f"⚡ Power Clean 3RM", "60"), st.text_input(f"➕ PC Inc", def_inc[4])
+            if variant == "Standard (Power Clean)":
+                pc_rm, pc_inc = st.text_input(f"⚡ Power Clean 3RM", "60"), st.text_input(f"➕ Power Clean Inc", def_inc[4])
             else:
-                st.write("PC Disabled")
+                st.write("Power Clean Disabled")
 
         submit = st.form_submit_button("🚀 Start Cycle")
         if submit:
@@ -193,8 +193,7 @@ if st.session_state.cycles:
                         is_a = (w_i + 1) % 2 != 0
                         m_p, w_p = ("Bench", "OHP") if is_a else ("OHP", "Bench")
                         
-                        # Variant Logic for Days
-                        monday_pull = "Power Clean" if cycle.get("variant") == "Standard (Olympic Clean)" else "Deadlift"
+                        monday_pull = "Power Clean" if cycle.get("variant") == "Standard (Power Clean)" else "Deadlift"
                         
                         days = [("Monday (Volume)", 0.90, ["Squat", m_p, monday_pull]),
                                 ("Wednesday (Light)", 0.80, ["Squat", w_p, "Chin-ups", "Back Extensions"]),
@@ -214,14 +213,13 @@ if st.session_state.cycles:
                                         if not is_accessory:
                                             c_rm = cycle['lifts'][mv]['rm'] + (cycle['lifts'][mv]['inc'] * counts[mv])
                                             calc_w = round_to_plates(c_rm * pct, smallest_plate)
-                                            # Special Sets for PC
                                             set_count = 3 if mv == "Power Clean" else (5 if "Monday" in d_name else (2 if "Wednesday" in d_name else 1))
                                             rep_count = 3 if mv == "Power Clean" else 5
                                         
                                         with st.container(border=True):
                                             st.markdown(f"**{lift_emojis.get(mv, '')} {mv}**")
                                             if not is_accessory:
-                                                st.markdown(f"#### {set_count}x{rep_count} @ {format_weight(calc_w)} {u}")
+                                                st.markdown(f"#### {set_count}x{rep_count} @ {format_weight(calc_w)} {u} ({int(pct*100)}%)")
                                                 for s_i in range(set_count):
                                                     cb_key = f"ck_{t_idx}_{w_i}_{d_name}_{mv}_{s_i}"
                                                     prev_state_key = f"prev_{cb_key}"
@@ -252,8 +250,7 @@ if st.session_state.cycles:
                                             cb_key = f"success_chk_{t_idx}_{w_i}_{mv}"
                                             cycle['success_log'][mv][w_i] = st.checkbox(f"Crushed {mv}", value=cycle['success_log'][mv][w_i], key=cb_key)
                                     
-                                    # Standard variant also needs to log Power Clean success on Mondays (handled via separate logic or checkbox here)
-                                    if cycle.get("variant") == "Standard (Olympic Clean)":
+                                    if cycle.get("variant") == "Standard (Power Clean)":
                                         pc_key = f"pc_success_{t_idx}_{w_i}"
                                         cycle['success_log']["Power Clean"][w_i] = st.checkbox("⚡ Log Power Clean Success (Mon)", value=cycle['success_log']["Power Clean"][w_i], key=pc_key)
 
@@ -268,7 +265,7 @@ if st.session_state.cycles:
                 with c1:
                     fig_w = go.Figure()
                     lifts_to_show = ["Squat", "Bench", "OHP", "Deadlift"]
-                    if cycle.get("variant") == "Standard (Olympic Clean)": lifts_to_show.append("Power Clean")
+                    if cycle.get("variant") == "Standard (Power Clean)": lifts_to_show.append("Power Clean")
                     
                     colors = {"Squat": "#FF4B4B", "Bench": "#1C83E1", "OHP": "#FFFFFF", "Deadlift": "#FFC300", "Power Clean": "#00FF00"}
                     for lift in lifts_to_show:
