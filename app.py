@@ -27,6 +27,7 @@ def load_data():
 # --- CORE MATH ---
 def calculate_1rm(weight, reps):
     if reps == 1: return weight
+    # Brzycki Formula
     return weight / (1.0278 - (0.0278 * reps))
 
 def format_weight(weight):
@@ -163,13 +164,13 @@ if st.session_state.cycles:
                         m_p, w_p = ("Bench", "OHP") if is_a else ("OHP", "Bench")
                         
                         cols = st.columns(3)
-                        days = [("📅 Monday (Volume)", 0.90, 5, ["Squat", m_p, "Deadlift"]),
-                                ("📅 Wednesday (Light)", 0.70, 5, ["Squat", w_p]),
-                                ("📅 Friday (Intensity)", 1.00, 5, ["Squat", m_p, "Deadlift"])]
+                        days = [("📅 Monday (Volume)", 0.90, ["Squat", m_p, "Deadlift"]),
+                                ("📅 Wednesday (Light)", 0.70, ["Squat", w_p]),
+                                ("📅 Friday (Intensity)", 1.00, ["Squat", m_p, "Deadlift"])]
 
                         lift_emojis = {"Squat": "🏋️", "Bench": "💪", "OHP": "🥥", "Deadlift": "🔥"}
 
-                        for d_idx, (title, pct, reps_for_calc, moves) in enumerate(days):
+                        for d_idx, (title, pct, moves) in enumerate(days):
                             with cols[d_idx]:
                                 st.markdown(f"#### {title}")
                                 for mv in moves:
@@ -177,14 +178,14 @@ if st.session_state.cycles:
                                     current_1rm = calculate_1rm(current_5rm, 5)
                                     calc_w = round_to_plates(current_5rm * pct, plate)
                                     
-                                    # Yüzdelik Analizi
-                                    p_1rm = (calc_w / current_1rm) * 100
-                                    p_5rm = (calc_w / current_5rm) * 100
+                                    # Yüzdelik Analizi - TAM SAYIYA YUVARLANMIŞ
+                                    p_1rm = round((calc_w / current_1rm) * 100)
+                                    p_5rm = round((calc_w / current_5rm) * 100)
                                     
                                     reps_str = "5x5" if "Monday" in title else ("2x5" if "Wednesday" in title else "1x5")
                                     
                                     st.info(f"**{lift_emojis.get(mv, '')} {mv}**: {reps_str} @ **{format_weight(calc_w)} {u}** \n"
-                                            f"*(%{p_1rm:.1f} of 1RM / %{p_5rm:.1f} of 5RM)*")
+                                            f"*(%{p_1rm} of 1RM / %{p_5rm} of 5RM)*")
                                 
                                 if "Wednesday" in title:
                                     st.success("🦾 **Pullups**: 3 x Max")
@@ -219,14 +220,14 @@ if st.session_state.cycles:
                     fig_w = go.Figure()
                     for lift, color in zip(["Squat", "Bench", "OHP", "Deadlift"], ["#FF4B4B", "#1C83E1", "#FFFFFF", "#FFC300"]):
                         y_vals = [cycle['lifts'][lift]['rm'] + (cycle['lifts'][lift]['inc'] * sum(1 for prev_w in range(w) if cycle['success_log'][lift][prev_w] and cycle['week_completed_log'][prev_w])) for w in range(cycle['weeks'])]
-                        fig_w.add_trace(go.Scatter(x=weeks_range, y=y_vals, name=lift, line=dict(color=color, width=4)))
-                    # Açıyı belirginleştirmek için Y eksenini veriye odakla
+                        fig_w.add_trace(go.Scatter(x=weeks_range, y=y_vals, name=lift, line=dict(color=color, width=4), mode='lines+markers'))
+                    
                     fig_w.update_layout(title="Lifts Progress (Aggressive View)", height=450, template="plotly_dark" if theme_choice == "Deep Dark" else "plotly_white",
                                       yaxis=dict(autorange=True, fixedrange=False))
                     st.plotly_chart(fig_w, use_container_width=True)
                 with c2:
                     fig_p = go.Figure()
-                    fig_p.add_trace(go.Scatter(x=weeks_range, y=cycle['weight_log'], name="BW", line=dict(color="#00C49A", width=4)))
+                    fig_p.add_trace(go.Scatter(x=weeks_range, y=cycle['weight_log'], name="BW", line=dict(color="#00C49A", width=4), mode='lines+markers'))
                     fig_p.update_layout(title="Bodyweight Tracker", height=450, template="plotly_dark" if theme_choice == "Deep Dark" else "plotly_white",
                                       yaxis=dict(autorange=True, fixedrange=False))
                     st.plotly_chart(fig_p, use_container_width=True)
