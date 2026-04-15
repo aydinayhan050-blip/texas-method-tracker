@@ -285,16 +285,18 @@ if st.session_state.cycles:
                                 st.divider()
                                 if "Friday" not in d_name:
                                     # Monday / Wednesday logic
+                                    # Special section for Power Clean on Monday Standard variant
+                                    if "Monday" in d_name and cycle.get("variant") == "Standard (Power Clean)":
+                                        st.subheader("⚡ Power Clean Checklist")
+                                        st.caption("ℹ️ **How it works:** Check this if you successfully completed all sets of Power Clean today. Successful completion will increase the weight by your set increment next week.")
+                                        pc_key = f"pc_success_{t_idx}_{w_i}"
+                                        cycle['success_log']["Power Clean"][w_i] = st.checkbox("⚡ Crushed Power Clean (Mon)", value=cycle['success_log']["Power Clean"][w_i], key=pc_key)
+                                        st.write("---")
+                                    
                                     if not is_done and st.button(f"Mark {d_name} Finished", key=f"btn_v2_{d_key}", use_container_width=True):
                                         cycle['day_completed_log'][d_key] = True; save_data(); st.rerun()
                                     elif is_done: st.success(f"✅ {d_name} Finished!")
                                     
-                                    # Special check for Power Clean on Monday Standard variant
-                                    if "Monday" in d_name and cycle.get("variant") == "Standard (Power Clean)":
-                                        st.write("---")
-                                        pc_key = f"pc_success_{t_idx}_{w_i}"
-                                        cycle['success_log']["Power Clean"][w_i] = st.checkbox("⚡ Crushed Power Clean (Mon)", value=cycle['success_log']["Power Clean"][w_i], key=pc_key)
-
                                 else:
                                     # Friday logic
                                     st.subheader("🏆 Friday Checklist")
