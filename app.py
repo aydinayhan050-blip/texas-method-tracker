@@ -294,22 +294,38 @@ if st.session_state.cycles:
                                                     if checked and not st.session_state[prev_state_key]:
                                                         st.session_state[prev_state_key] = True
                                                         st.session_state.timer_paused = False
+                                                        for k in list(st.session_state.keys()):
+                                                            if k.startswith("rem_ck_") and k != rem_key:
+                                                                st.session_state[k] = -1
                                                         st.session_state[rem_key] = rest_choice * 60
                                                     
                                                     if checked and st.session_state[rem_key] > 0:
                                                         if not st.session_state.timer_paused:
-                                                            while st.session_state[rem_key] >= 0:
+                                                            is_interrupt = False
+                                                            for k, v in st.session_state.items():
+                                                                if isinstance(v, bool) and v is True and (k.startswith("btn_v2_") or k.startswith("final_btn_") or k.startswith("conf_del_") or k.startswith("bp_") or k.startswith("bw_")):
+                                                                    is_interrupt = True
+                                                                    break
+                                                                if k.startswith("ck_") and v is True and not st.session_state.get(f"prev_{k}", False):
+                                                                    is_interrupt = True
+                                                                    break
+                                                            
+                                                            if not is_interrupt:
+                                                                while st.session_state[rem_key] >= 0:
+                                                                    m, sc = divmod(st.session_state[rem_key], 60)
+                                                                    timer_place.markdown(f'<p class="big-timer">{m:02d}:{sc:02d}</p>', unsafe_allow_html=True)
+                                                                    if st.session_state[rem_key] == 0:
+                                                                        break
+                                                                    time.sleep(1)
+                                                                    st.session_state[rem_key] -= 1
+                                                                
+                                                                if st.session_state[rem_key] == 0:
+                                                                    st.components.v1.html("<script>window.parent.notifyEnd();</script>", height=0)
+                                                                    timer_place.markdown('<p class="ready-text">READY! 🔥</p>', unsafe_allow_html=True)
+                                                                    st.session_state[rem_key] = -1
+                                                            else:
                                                                 m, sc = divmod(st.session_state[rem_key], 60)
                                                                 timer_place.markdown(f'<p class="big-timer">{m:02d}:{sc:02d}</p>', unsafe_allow_html=True)
-                                                                if st.session_state[rem_key] == 0:
-                                                                    break
-                                                                time.sleep(1)
-                                                                st.session_state[rem_key] -= 1
-                                                                
-                                                            if st.session_state[rem_key] == 0:
-                                                                st.components.v1.html("<script>window.parent.notifyEnd();</script>", height=0)
-                                                                timer_place.markdown('<p class="ready-text">READY! 🔥</p>', unsafe_allow_html=True)
-                                                                st.session_state[rem_key] = -1
                                                         else:
                                                             m, sc = divmod(st.session_state[rem_key], 60)
                                                             timer_place.markdown(f'<p class="big-timer">{m:02d}:{sc:02d}</p>', unsafe_allow_html=True)
