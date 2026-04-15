@@ -94,11 +94,14 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+# Timer Session States
 if 'cycles' not in st.session_state:
     cycles, saved_unit = load_data()
     st.session_state.cycles = cycles
     st.session_state.current_unit = saved_unit
 
+if 'timer_remaining' not in st.session_state:
+    st.session_state.timer_remaining = 0
 if 'timer_paused' not in st.session_state:
     st.session_state.timer_paused = False
 
@@ -231,7 +234,25 @@ if st.session_state.cycles:
                                 st.session_state.timer_paused = not st.session_state.timer_paused
                         with t_col2:
                             timer_place = st.empty()
-                            timer_place.markdown('<p class="big-timer">00:00</p>', unsafe_allow_html=True)
+                            # Global Timer Logic Execution
+                            if st.session_state.timer_remaining > 0:
+                                while st.session_state.timer_remaining >= 0:
+                                    m, sc = divmod(st.session_state.timer_remaining, 60)
+                                    timer_place.markdown(f'<p class="big-timer">{m:02d}:{sc:02d}</p>', unsafe_allow_html=True)
+                                    if st.session_state.timer_remaining == 0: break
+                                    if not st.session_state.timer_paused:
+                                        time.sleep(1)
+                                        st.session_state.timer_remaining -= 1
+                                    else:
+                                        time.sleep(0.5)
+                                if st.session_state.timer_remaining == 0:
+                                    st.components.v1.html("<script>window.parent.notifyEnd();</script>", height=0)
+                                    timer_place.markdown('<p class="ready-text">READY! 🔥</p>', unsafe_allow_html=True)
+                                    st.session_state.timer_remaining = -1
+                            elif st.session_state.timer_remaining == -1:
+                                timer_place.markdown('<p class="ready-text">READY! 🔥</p>', unsafe_allow_html=True)
+                            else:
+                                timer_place.markdown('<p class="big-timer">00:00</p>', unsafe_allow_html=True)
                         
                         cycle['weight_log'][w_i] = st.number_input(f"BW ({u})", value=cycle['weight_log'][w_i], key=f"bw_in_{t_idx}_{w_i}")
                         st.divider()
@@ -284,35 +305,15 @@ if st.session_state.cycles:
                                                 for s_i in range(set_count):
                                                     cb_key = f"ck_{t_idx}_{w_i}_{d_name}_{mv}_{s_i}"
                                                     prev_state_key = f"prev_{cb_key}"
-                                                    rem_key = f"rem_{cb_key}"
-                                                    
                                                     if prev_state_key not in st.session_state: st.session_state[prev_state_key] = False
-                                                    if rem_key not in st.session_state: st.session_state[rem_key] = 0
                                                     
+                                                    # Fix: Reset and Restart Logic
                                                     checked = st.checkbox(f"Set {s_i+1}", key=cb_key)
-                                                    
                                                     if checked and not st.session_state[prev_state_key]:
                                                         st.session_state[prev_state_key] = True
                                                         st.session_state.timer_paused = False
-                                                        st.session_state[rem_key] = rest_choice * 60
-                                                    
-                                                    if checked and st.session_state[rem_key] > 0:
-                                                        if not st.session_state.timer_paused:
-                                                            while st.session_state[rem_key] >= 0:
-                                                                m, sc = divmod(st.session_state[rem_key], 60)
-                                                                timer_place.markdown(f'<p class="big-timer">{m:02d}:{sc:02d}</p>', unsafe_allow_html=True)
-                                                                if st.session_state[rem_key] == 0:
-                                                                    break
-                                                                time.sleep(1)
-                                                                st.session_state[rem_key] -= 1
-                                                                
-                                                            if st.session_state[rem_key] == 0:
-                                                                st.components.v1.html("<script>window.parent.notifyEnd();</script>", height=0)
-                                                                timer_place.markdown('<p class="ready-text">READY! 🔥</p>', unsafe_allow_html=True)
-                                                                st.session_state[rem_key] = -1
-                                                        else:
-                                                            m, sc = divmod(st.session_state[rem_key], 60)
-                                                            timer_place.markdown(f'<p class="big-timer">{m:02d}:{sc:02d}</p>', unsafe_allow_html=True)
+                                                        st.session_state.timer_remaining = rest_choice * 60
+                                                        st.rerun() # Force immediate restart of the global timer loop
                                             else:
                                                 st.markdown("#### 3 Sets")
                                                 st.markdown("Bodyweight - Failure" if mv == "Chin-ups" else "10-15 Reps")
@@ -321,7 +322,6 @@ if st.session_state.cycles:
                                 if "Friday" not in d_name:
                                     if "Monday" in d_name and cycle.get("variant") == "Standard (Power Clean)":
                                         st.subheader("⚡ Power Clean Checklist")
-                                        # ENGLISH DESCRIPTION HERE
                                         st.caption("ℹ️ **What's the play?** If you crushed every set with solid form today, check this box. Doing so triggers a weight increase for next week. If you struggled or your form was shit, leave it blank—we'll stay at this weight to dial it in.")
                                         pc_key = f"pc_success_{t_idx}_{w_i}"
                                         cycle['success_log']["Power Clean"][w_i] = st.checkbox("⚡ Crushed Power Clean", value=cycle['success_log']["Power Clean"][w_i], key=pc_key)
@@ -336,7 +336,6 @@ if st.session_state.cycles:
                                     
                                 else:
                                     st.subheader("🏆 Friday Checklist")
-                                    # ENGLISH DESCRIPTION HERE
                                     st.caption("ℹ️ **Judgment Day!** Mark the lifts you successfully smashed today. The checked ones will get heavier next week based on your chosen increments. If you missed reps, leave 'em blank and stay put. Don't bullshit yourself, boss!")
                                     cc = st.columns(len(moves))
                                     for mi, mv in enumerate(moves):
