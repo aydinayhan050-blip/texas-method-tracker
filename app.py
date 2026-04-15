@@ -9,14 +9,23 @@ import os
 DB_FILE = "texas_method_data.json"
 
 def save_data():
+    # Birimi de kaydediyoruz ki geri gelince hatırlasın
+    data = {
+        "cycles": st.session_state.cycles,
+        "unit": st.session_state.current_unit
+    }
     with open(DB_FILE, "w") as f:
-        json.dump(st.session_state.cycles, f)
+        json.dump(data, f)
 
 def load_data():
     if os.path.exists(DB_FILE):
         with open(DB_FILE, "r") as f:
-            return json.load(f)
-    return []
+            data = json.load(f)
+            # Eski versiyon dosyalarla uyumluluk için kontrol
+            if isinstance(data, dict):
+                return data.get("cycles", []), data.get("unit", "LBS")
+            return data, "LBS"
+    return [], "LBS"
 
 # --- CORE FUNCTIONS ---
 def format_weight(weight):
@@ -46,15 +55,18 @@ def get_warmup_sets(target_weight, unit, plate_inc):
 # --- UI CONFIG ---
 st.set_page_config(page_title="Texas Method Tracker", layout="wide")
 
+# Veriyi ve birimi yükle
 if 'cycles' not in st.session_state:
-    st.session_state.cycles = load_data()
-if 'current_unit' not in st.session_state:
-    st.session_state.current_unit = "LBS"
+    cycles, saved_unit = load_data()
+    st.session_state.cycles = cycles
+    st.session_state.current_unit = saved_unit
 
 # --- SIDEBAR ---
 with st.sidebar:
     st.header("⚙️ Settings")
-    new_unit = st.radio("Unit", ["LBS", "KG"], index=0)
+    # Kayıtlı birime göre index belirle
+    unit_index = 0 if st.session_state.current_unit == "LBS" else 1
+    new_unit = st.radio("Unit", ["LBS", "KG"], index=unit_index)
     theme_choice = st.selectbox("Theme", ["Deep Dark", "Light"])
     
     bg_color = "#0e1117" if theme_choice == "Deep Dark" else "#ffffff"
@@ -144,7 +156,6 @@ if st.session_state.cycles:
             head_col1, head_col2 = st.columns([0.7, 0.3])
             head_col1.subheader(f"⚡ {cycle['name']}")
             
-            # Delete Logic
             del_key = f"confirm_del_{true_idx}"
             if del_key not in st.session_state: st.session_state[del_key] = False
             if not st.session_state[del_key]:
@@ -166,20 +177,15 @@ if st.session_state.cycles:
             with tab1:
                 week_titles = []
                 last_active_week = 0
-                
                 for w_i in range(cycle['weeks']):
-                    # Herhangi bir hareketin Cuma günü başarılması haftayı tamamlar
                     any_success = any(cycle['success_log'][mv][w_i] for mv in ["Squat", "Bench", "OHP", "Deadlift"])
-                    
                     title = f"W{w_i+1}"
                     if any_success:
                         title += " ✅"
-                        last_active_week = w_i + 1 # Bir sonraki haftayı odak noktası yap
+                        last_active_week = w_i + 1
                     week_titles.append(title)
                 
-                # Fokus haftası sınırlarını koru
                 focus_week = min(last_active_week, cycle['weeks'] - 1)
-                
                 w_tabs = st.tabs(week_titles)
                 
                 for w_i in range(cycle['weeks']):
@@ -209,9 +215,14 @@ if st.session_state.cycles:
                             with cols[d_idx]:
                                 st.markdown(f"#### {day_title}")
                                 for mv in moves:
+                                    # O haftanın 5RM baz ağırlığı
                                     base_5rm = cycle['lifts'][mv]['rm'] + (cycle['lifts'][mv]['inc'] * counts[mv])
                                     work_weight = round_to_plates(base_5rm * pct, plate)
-                                    st.info(f"**{mv}**: {rep_scheme} @ **{format_weight(work_weight)} {new_unit}**")
+                                    
+                                    # Yüzde hesaplama (Küsurat temizliği için)
+                                    display_pct = int(pct * 100)
+                                    
+                                    st.info(f"**{mv}**: {rep_scheme} @ **{format_weight(work_weight)} {new_unit}** ({display_pct}% 5RM)")
                                     with st.expander("🔥 Warmup"):
                                         for line in get_warmup_sets(work_weight, new_unit, plate):
                                             st.markdown(f'<p class="warmup-text">{line}</p>', unsafe_allow_html=True)
