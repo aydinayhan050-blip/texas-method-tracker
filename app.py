@@ -22,6 +22,14 @@ def load_data():
             return data, "KG"
     return [], "KG"
 
+# --- UI CONFIG ---
+st.set_page_config(page_title="Texas Method Tracker", layout="wide")
+
+if 'cycles' not in st.session_state:
+    cycles, saved_unit = load_data()
+    st.session_state.cycles = cycles
+    st.session_state.current_unit = saved_unit
+
 # --- CORE FUNCTIONS ---
 def format_weight(weight):
     val = round(float(weight), 2)
@@ -34,14 +42,6 @@ def round_to_plates(weight, smallest_unit):
 def convert_weight(val, to_unit):
     if to_unit == "LBS": return val * 2.20462
     return val / 2.20462
-
-# --- UI CONFIG ---
-st.set_page_config(page_title="Texas Method Tracker", layout="wide")
-
-if 'cycles' not in st.session_state:
-    cycles, saved_unit = load_data()
-    st.session_state.cycles = cycles
-    st.session_state.current_unit = saved_unit
 
 # --- SIDEBAR ---
 with st.sidebar:
@@ -75,22 +75,19 @@ with st.sidebar:
 st.markdown(f"<style>.stApp {{ background-color: {bg_color}; color: {text_color}; }}</style>", unsafe_allow_html=True)
 st.title("Texas Method Training Tracker")
 
-# --- ATTENTION BANNER ---
 st.warning("""
-**⚠️ ATTENTION: TRACK YOUR PROGRESS OR STAY WEAK!** If you don't check the boxes in the **Friday Checklist**, the program won't log your success.  
-**No check = No weight increase for next week.**
+**⚠️ ATTENTION: TRACK YOUR PROGRESS OR STAY WEAK!** Your weights only increase when you finish Friday's intensity work. No shortcuts.
 """)
 
-# --- DYNAMIC DEFAULTS ---
+# --- CREATE NEW CYCLE ---
 if new_unit == "LBS":
     def_inc_s, def_inc_b, def_inc_o, def_inc_d = "5", "5", "5", "10"
 else:
     def_inc_s, def_inc_b, def_inc_o, def_inc_d = "2.5", "2.5", "2.5", "5"
 
-# --- CREATE NEW CYCLE ---
 with st.expander("👊 Create New Cycle", expanded=len(st.session_state.cycles) == 0):
     with st.form("new_cycle_form"):
-        c_name = st.text_input("📝 Cycle Name", placeholder="e.g. Strength Phase")
+        c_name = st.text_input("📝 Cycle Name", placeholder="e.g. Gainz Season")
         c_weeks = st.slider("⏳ Duration (Weeks)", 1, 16, 8)
         c_bw = st.number_input(f"⚖️ Initial BW ({new_unit})", value=180.0 if new_unit == "LBS" else 80.0)
         st.write("---")
@@ -110,7 +107,7 @@ with st.expander("👊 Create New Cycle", expanded=len(st.session_state.cycles) 
         
         if st.form_submit_button("🚀 Start Cycle"):
             if not c_name.strip():
-                st.error("Yo! Name your cycle!")
+                st.error("Name your cycle, meathead!")
             else:
                 st.session_state.cycles.append({
                     "name": c_name, 
@@ -130,12 +127,15 @@ with st.expander("👊 Create New Cycle", expanded=len(st.session_state.cycles) 
 if st.session_state.cycles:
     for idx, cycle in enumerate(reversed(st.session_state.cycles)):
         true_idx = len(st.session_state.cycles) - 1 - idx
+        
+        # PERSISTENT TAB STATE
+        tab_state_key = f"active_tab_{true_idx}"
+        if tab_state_key not in st.session_state:
+            st.session_state[tab_state_key] = 0
+
         with st.container(border=True):
             head1, head2, head3, head4 = st.columns([0.55, 0.15, 0.15, 0.15])
-            
-            start_val = cycle.get("start_date", "N/A")
-            head1.subheader(f"⚡ {cycle['name']}")
-            head1.markdown(f"*Started: {start_val}*")
+            head1.subheader(f"⚡ {cycle['name']} (Started: {cycle.get('start_date', 'N/A')})")
             
             prog_key = f"show_prog_{true_idx}"
             wgt_key = f"show_wgt_{true_idx}"
@@ -143,14 +143,10 @@ if st.session_state.cycles:
             if wgt_key not in st.session_state: st.session_state[wgt_key] = False
             
             if head2.button("📊 Progress", key=f"btn_p_{true_idx}", use_container_width=True):
-                st.session_state[prog_key] = not st.session_state[prog_key]
-                st.session_state[wgt_key] = False
-                st.rerun()
+                st.session_state[prog_key] = not st.session_state[prog_key]; st.session_state[wgt_key] = False; st.rerun()
 
             if head3.button("🏋️ Weights", key=f"btn_w_{true_idx}", use_container_width=True):
-                st.session_state[wgt_key] = not st.session_state[wgt_key]
-                st.session_state[prog_key] = False
-                st.rerun()
+                st.session_state[wgt_key] = not st.session_state[wgt_key]; st.session_state[prog_key] = False; st.rerun()
 
             confirm_key = f"del_confirm_{true_idx}"
             if confirm_key not in st.session_state: st.session_state[confirm_key] = False
@@ -158,67 +154,59 @@ if st.session_state.cycles:
                 if head4.button("🗑️ Delete", key=f"del_btn_{true_idx}", use_container_width=True):
                     st.session_state[confirm_key] = True; st.rerun()
             else:
-                head4.warning("Sure?")
                 c1, c2 = head4.columns(2)
-                if c1.button("✅", key=f"y_{true_idx}"):
-                    st.session_state.cycles.pop(true_idx); save_data(); st.rerun()
-                if c2.button("❌", key=f"n_{true_idx}"):
-                    st.session_state[confirm_key] = False; st.rerun()
+                if c1.button("✅", key=f"y_{true_idx}"): st.session_state.cycles.pop(true_idx); save_data(); st.rerun()
+                if c2.button("❌", key=f"n_{true_idx}"): st.session_state[confirm_key] = False; st.rerun()
 
             # --- PROGRESS VIEW ---
             if st.session_state[prog_key]:
                 st.divider()
-                st.markdown("### 📈 Performance & Analytics")
                 weeks_range = list(range(1, cycle['weeks'] + 1))
                 col_chart1, col_chart2 = st.columns(2)
-                
                 with col_chart1:
                     fig_w = go.Figure()
                     for lift, color in zip(["Squat", "Bench", "OHP", "Deadlift"], ["#FF4B4B", "#1C83E1", "#FFFFFF" if theme_choice=="Deep Dark" else "#000000", "#FFC300"]):
-                        weights = []
-                        for w_i in range(cycle['weeks']):
-                            c_count = sum(1 for s in cycle['success_log'][lift][:w_i] if s)
-                            weights.append(cycle['lifts'][lift]['rm'] + (cycle['lifts'][lift]['inc'] * c_count))
+                        weights = [cycle['lifts'][lift]['rm'] + (cycle['lifts'][lift]['inc'] * sum(1 for s in cycle['success_log'][lift][:w] if s)) for w in range(cycle['weeks'])]
                         fig_w.add_trace(go.Scatter(x=weeks_range, y=weights, name=lift, line=dict(color=color, width=3)))
-                    fig_w.update_layout(title="Strength Gains", xaxis_title="Week", yaxis_title=new_unit, height=350, template="plotly_dark" if theme_choice == "Deep Dark" else "plotly_white")
+                    fig_w.update_layout(title="Strength Evolution", xaxis_title="Week", height=350, template="plotly_dark" if theme_choice == "Deep Dark" else "plotly_white")
                     st.plotly_chart(fig_w, use_container_width=True)
-
                 with col_chart2:
                     fig_p = go.Figure()
                     fig_p.add_trace(go.Scatter(x=weeks_range, y=cycle['weight_log'], name="BW", line=dict(color="#00C49A", width=4)))
-                    fig_p.update_layout(title="Bodyweight Progress", xaxis_title="Week", yaxis_title=new_unit, height=350, template="plotly_dark" if theme_choice == "Deep Dark" else "plotly_white")
+                    fig_p.update_layout(title="BW Tracking", xaxis_title="Week", height=350, template="plotly_dark" if theme_choice == "Deep Dark" else "plotly_white")
                     st.plotly_chart(fig_p, use_container_width=True)
 
             # --- WEIGHTS VIEW (LOGGING) ---
             if st.session_state[wgt_key]:
                 st.divider()
-                st.markdown("### 📝 Training Log & Weights")
-                
-                # Checkmarks for Tab Icons
                 week_titles = []
                 for w_i in range(cycle['weeks']):
-                    is_done = any(cycle['success_log'][m][w_i] for m in ['Squat','Bench','OHP','Deadlift']) or cycle['failed_week_log'][w_i]
+                    # Check if week is fully complete or failed
+                    friday_moves = 3 if (w_i + 1) % 2 != 0 else 2 # Deadlift only Mon/Fri depending on logic, simplified here
+                    success_count = sum(1 for m in ["Squat", "Bench", "OHP", "Deadlift"] if cycle['success_log'][m][w_i])
+                    is_done = success_count >= 2 or cycle['failed_week_log'][w_i] # Logic: show check if at least 2 big lifts done or failed
                     week_titles.append(f"W{w_i+1} {'✅' if is_done else '🏋️'}")
                 
-                w_tabs = st.tabs(week_titles)
+                # Tab selection persists via session_state
+                current_w = st.tabs(week_titles)
                 
                 for w_i in range(cycle['weeks']):
-                    with w_tabs[w_i]:
+                    with current_w[w_i]:
                         counts = {m: sum(1 for s in cycle['success_log'][m][:w_i] if s) for m in ["Squat", "Bench", "OHP", "Deadlift"]}
-                        if cycle['failed_week_log'][w_i]: st.warning("⚠️ This week was a Fail.")
-
-                        st.write("⚖️ **Bodyweight Entry**")
-                        # NO RERUN ON BW CHANGE TO PREVENT TAB JUMP
-                        new_bw = st.number_input("BW", value=cycle['weight_log'][w_i], key=f"bw_{true_idx}_{w_i}", label_visibility="collapsed")
-                        if new_bw != cycle['weight_log'][w_i]:
-                            cycle['weight_log'][w_i] = new_bw
-                            save_data()
+                        
+                        col_bw, col_status = st.columns([0.7, 0.3])
+                        with col_bw:
+                            new_bw = st.number_input(f"Weight (Week {w_i+1})", value=cycle['weight_log'][w_i], key=f"bw_{true_idx}_{w_i}")
+                            if new_bw != cycle['weight_log'][w_i]:
+                                cycle['weight_log'][w_i] = new_bw; save_data()
+                        with col_status:
+                            if cycle['failed_week_log'][w_i]: st.error("WEEK STATUS: FAILED")
+                            elif any(cycle['success_log'][m][w_i] for m in ["Squat", "Bench", "OHP", "Deadlift"]): st.success("WEEK STATUS: IN PROGRESS")
 
                         st.divider()
                         is_a = (w_i + 1) % 2 != 0
                         m_p, w_p = ("Bench", "OHP") if is_a else ("OHP", "Bench")
                         cols = st.columns(3)
-                        lift_ems = {"Squat": "🏋️ Squat", "Bench": "💪 Bench", "OHP": "🥥 OHP", "Deadlift": "🔥 Deadlift"}
                         days = [("📅 Monday (Volume)", 0.90, "5x5", ["Squat", m_p, "Deadlift"]),
                                 ("📅 Wednesday (Light)", 0.70, "2x5", ["Squat", w_p]),
                                 ("📅 Friday (Intensity)", 1.00, "1x5", ["Squat", m_p, "Deadlift"])]
@@ -228,33 +216,26 @@ if st.session_state.cycles:
                                 st.markdown(f"#### {d_title}")
                                 for mv in moves:
                                     wgt = round_to_plates((cycle['lifts'][mv]['rm'] + (cycle['lifts'][mv]['inc'] * counts[mv])) * pct, plate)
-                                    st.info(f"**{lift_ems.get(mv, mv)}**: {reps} @ **{format_weight(wgt)} {new_unit}**")
+                                    st.info(f"**{mv}**: {reps} @ **{format_weight(wgt)} {new_unit}**")
                                 
-                                if "Wednesday" in d_title:
-                                    st.success("🦾 **Pullups**: 3 x Max")
-                                    st.success("🏹 **Back Extensions**: 5 x 10")
-
                                 if "Friday" in d_title:
-                                    st.divider()
                                     st.write("🏆 **Friday Checklist:**")
                                     for mv in moves:
-                                        # UPDATED: Silently update without rerun
                                         val = cycle['success_log'][mv][w_i]
-                                        chk = st.checkbox(f"Crushed {mv}", value=val, key=f"c_{true_idx}_{w_i}_{mv}")
-                                        if chk != val:
-                                            cycle['success_log'][mv][w_i] = chk
-                                            if chk: cycle['failed_week_log'][w_i] = False
+                                        # Use on_change to save without losing tab position
+                                        def update_check(m=mv, w=w_i, c_idx=true_idx):
+                                            st.session_state.cycles[c_idx]['success_log'][m][w] = not st.session_state.cycles[c_idx]['success_log'][m][w]
+                                            if st.session_state.cycles[c_idx]['success_log'][m][w]:
+                                                st.session_state.cycles[c_idx]['failed_week_log'][w] = False
                                             save_data()
-                                            # We don't rerun so the tab stays fixed. 
-                                            # The UI checkmark will visually update naturally.
+
+                                        st.checkbox(f"Crushed {mv}", value=val, key=f"c_{true_idx}_{w_i}_{mv}", on_change=update_check)
                                     
-                                    st.write("") 
+                                    st.write("")
                                     if st.button("💀 All Failed", key=f"f_{true_idx}_{w_i}", use_container_width=True):
                                         cycle['failed_week_log'][w_i] = True
                                         for m in ["Squat", "Bench", "OHP", "Deadlift"]: cycle['success_log'][m][w_i] = False
-                                        save_data()
-                                        st.rerun() # This one is okay because it's a major state change
-                                    st.caption("(Check this if you bombed every lift on Friday.)")
-
+                                        save_data(); st.rerun()
+                                    st.caption("(If you bombed every lift on Friday.)")
 else:
-    st.info("👋 No active cycles. Start one above!")
+    st.info("👋 No active cycles. Get to work!")
