@@ -50,27 +50,49 @@ def convert_weight(val, to_unit):
 # --- UI CONFIG ---
 st.set_page_config(page_title="Texas Method Tracker", layout="wide")
 
-# STOP DIMMING AND STYLE GIANT TIMER
+# THE NUCLEAR ANTI-DIMMING CSS
 st.markdown("""
     <style>
-    div[data-testid="stStatusWidget"] { display: none; }
-    [data-testid="stAppViewBlockContainer"] { opacity: 1 !important; filter: none !important; }
-    div.stBlock[data-stale="true"] { opacity: 1 !important; filter: none !important; }
+    /* 1. Disable the status widget spinner area */
+    div[data-testid="stStatusWidget"] { display: none !important; }
+    
+    /* 2. Force full opacity on the entire app container even when stale/running */
+    div[data-testid="stAppViewBlockContainer"] {
+        opacity: 1 !important;
+        filter: none !important;
+    }
+    
+    /* 3. Target the specific 'stale' state that causes the dimming */
+    div.stBlock[data-stale="true"] {
+        opacity: 1 !important;
+        filter: none !important;
+        pointer-events: auto !important;
+    }
+
+    /* 4. Ensure checkboxes and other widgets don't dim themselves */
+    .stCheckbox label, .stButton button, .stMarkdown {
+        opacity: 1 !important;
+    }
+
+    /* 5. Giant Timer Styling */
     .big-timer {
-        font-size: 85px !important;
-        font-weight: 800;
+        font-size: 90px !important;
+        font-weight: 900;
         text-align: center;
         color: #FF4B4B;
         margin: 0px;
-        line-height: 1;
+        line-height: 1.1;
         font-family: 'Courier New', Courier, monospace;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
     }
     .ready-text {
-        font-size: 60px !important;
+        font-size: 65px !important;
         color: #28a745;
-        font-weight: bold;
+        font-weight: 900;
         text-align: center;
+        animation: blinker 1s linear infinite;
     }
+    @keyframes blinker { 50% { opacity: 0; } }
     </style>
 """, unsafe_allow_html=True)
 
@@ -143,7 +165,6 @@ if st.session_state.cycles:
         with st.container(border=True):
             h1, h2, h3, h4 = st.columns([0.55, 0.15, 0.15, 0.15])
             h1.markdown(f"### ⚡ {cycle['name']}")
-            h1.caption(f"📅 Started: {cycle.get('start_date', 'N/A')}")
             
             p_key, w_key = f"p_{true_idx}", f"w_{true_idx}"
             if p_key not in st.session_state: st.session_state[p_key] = False
@@ -160,7 +181,7 @@ if st.session_state.cycles:
                 tabs = st.tabs([f"Week {i+1} {'✅' if cycle['week_completed_log'][i] else ''}" for i in range(cycle['weeks'])])
                 for w_i in range(cycle['weeks']):
                     with tabs[w_i]:
-                        # TIMER SECTION
+                        # ENHANCED TIMER SECTION
                         t_col1, t_col2 = st.columns([0.3, 0.7])
                         with t_col1: rest_choice = st.slider("⏱️ Rest (min)", 1, 10, 3, key=f"rs_{true_idx}_{w_i}")
                         with t_col2:
@@ -168,7 +189,7 @@ if st.session_state.cycles:
                             timer_bar = st.empty()
                             timer_text.markdown('<p class="big-timer">00:00</p>', unsafe_allow_html=True)
 
-                        new_bw = st.number_input("Weight (BW)", value=cycle['weight_log'][w_i], key=f"bw_in_{true_idx}_{w_i}")
+                        new_bw = st.number_input("Bodyweight (BW)", value=cycle['weight_log'][w_i], key=f"bw_in_{true_idx}_{w_i}")
                         if new_bw != cycle['weight_log'][w_i]:
                             cycle['weight_log'][w_i] = new_bw; save_data()
 
@@ -255,7 +276,7 @@ if st.session_state.cycles:
                 with c2:
                     fig_p = go.Figure()
                     fig_p.add_trace(go.Scatter(x=weeks_range, y=cycle['weight_log'], name="BW", line=dict(color="#00C49A", width=4), mode='lines+markers'))
-                    fig_p.update_layout(title="Bodyweight", template="plotly_dark" if theme_choice == "Deep Dark" else "plotly_white")
+                    fig_p.update_layout(title="Bodyweight Progress", template="plotly_dark" if theme_choice == "Deep Dark" else "plotly_white")
                     st.plotly_chart(fig_p, use_container_width=True)
 else:
     st.info("No active cycles. Start your journey!")
