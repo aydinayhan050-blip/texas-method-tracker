@@ -204,25 +204,24 @@ if st.session_state.cycles:
                                                     st.write(f"• {lbl}: **{format_weight(fv)}**")
                                 
                                 st.divider()
-                                # GÜN TAMAMLAMA
-                                if st.button(f"Mark {d_name} Finished", key=f"btn_v2_{d_key}", use_container_width=True):
-                                    cycle['day_completed_log'][d_key] = True
-                                    save_data(); st.rerun()
-
-                                if "Friday" in d_name:
+                                # SADECE PAZARTESİ VE ÇARŞAMBA İÇİN GENEL BUTON
+                                if "Friday" not in d_name:
+                                    if st.button(f"Mark {d_name} Finished", key=f"btn_v2_{d_key}", use_container_width=True):
+                                        cycle['day_completed_log'][d_key] = True
+                                        save_data(); st.rerun()
+                                else:
+                                    # CUMA ÖZEL: CHECKLIST VE LOG WEEK
                                     st.subheader("🏆 Friday Checklist")
                                     st.caption("ℹ️ *Check 'Crushed' if you hit the reps. This increases weight for next week.*")
                                     cc = st.columns(len(moves))
                                     for mi, mv in enumerate(moves):
                                         with cc[mi]:
-                                            # Başarı durumunu anlık olarak session_state'e bağlıyoruz
                                             cb_key = f"success_chk_{t_idx}_{w_i}_{mv}"
                                             is_success = st.checkbox(f"Crushed {mv}", value=cycle['success_log'][mv][w_i], key=cb_key)
                                             cycle['success_log'][mv][w_i] = is_success
                                     
                                     if st.button("🏁 Finish & Log Week", key=f"final_btn_{t_idx}_{w_i}", use_container_width=True, type="primary"):
-                                        # Butona basıldığında o günün kutucuklarını bir kez daha teyit edip kaydediyoruz
-                                        cycle['day_completed_log'][d_key] = True
+                                        cycle['day_completed_log'][d_key] = True # Cuma gününü de bitirmiş say
                                         cycle['week_completed_log'][w_i] = True
                                         save_data(); st.rerun()
 
