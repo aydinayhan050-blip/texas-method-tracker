@@ -30,6 +30,7 @@ def calculate_1rm(weight, reps):
     return weight / (1.0278 - (0.0278 * reps))
 
 def custom_round_percent(p):
+    """Rounding to nearest 5th for cleaner UI."""
     return int(5 * round(float(p)/5))
 
 def format_weight(weight):
@@ -37,6 +38,7 @@ def format_weight(weight):
     return f"{int(val)}" if val % 1 == 0 else f"{val}"
 
 def round_to_plates(weight, smallest_plate):
+    """Rounding based on the smallest available plate weight."""
     step = smallest_plate * 2
     if step <= 0: return weight
     return round(weight / step) * step
@@ -153,12 +155,14 @@ if st.session_state.cycles:
             if h4.button("🗑️ Delete", key=f"bd_{true_idx}", use_container_width=True):
                 st.session_state.cycles.pop(true_idx); save_data(); st.rerun()
 
+            # --- WEIGHTS/LOGGING ---
             if st.session_state[wgt_key]:
                 st.divider()
                 tabs = st.tabs([f"Week {i+1} {'✅' if cycle['week_completed_log'][i] else '🏋️'}" for i in range(cycle['weeks'])])
                 
                 for w_i in range(cycle['weeks']):
                     with tabs[w_i]:
+                        # Dynamic RM calculation based on Friday success
                         counts = {m: sum(1 for prev_w in range(w_i) if cycle['success_log'][m][prev_w] and cycle['week_completed_log'][prev_w]) for m in ["Squat", "Bench", "OHP", "Deadlift"]}
                         new_bw = st.number_input("Current Bodyweight", value=cycle['weight_log'][w_i], key=f"bw_in_{true_idx}_{w_i}")
                         if new_bw != cycle['weight_log'][w_i]:
@@ -173,7 +177,8 @@ if st.session_state.cycles:
                                 ("📅 Wednesday (Light)", 0.70, ["Squat", w_p]),
                                 ("📅 Friday (Intensity)", 1.00, ["Squat", m_p, "Deadlift"])]
 
-                        lift_emojis = {"Squat": "🏋️", "Bench": "💪", "OHP": "🥥", "Deadlift": "🔥"}
+                        # LIFT EMOJIS - DEADLIFT UPDATED TO CHAIN
+                        lift_emojis = {"Squat": "🏋️", "Bench": "💪", "OHP": "🥥", "Deadlift": "⛓️"}
 
                         for d_idx, (title, pct, moves) in enumerate(days):
                             with cols[d_idx]:
@@ -192,7 +197,7 @@ if st.session_state.cycles:
                                         st.markdown(f"**{lift_emojis.get(mv, '')} {mv}**: {reps_str} @ **{format_weight(calc_w)} {u}**")
                                         st.caption(f"*(%{p_1rm} 1RM / %{p_5rm} 5RM)*")
                                         
-                                        # WARMUP SYSTEM
+                                        # WARMUP SYSTEM - Ateş Emojisi
                                         with st.expander("🔥 Warm-up Sets"):
                                             bar_w = 45 if u == "LBS" else 20
                                             warmups = [
@@ -230,6 +235,7 @@ if st.session_state.cycles:
                                             cycle['week_completed_log'][w_i] = False
                                             save_data(); st.rerun()
 
+            # --- PROGRESS SECTION ---
             if st.session_state[prog_key]:
                 st.divider()
                 weeks_range = list(range(1, cycle['weeks'] + 1))
@@ -237,7 +243,11 @@ if st.session_state.cycles:
                 with c1:
                     fig_w = go.Figure()
                     for lift, color in zip(["Squat", "Bench", "OHP", "Deadlift"], ["#FF4B4B", "#1C83E1", "#FFFFFF", "#FFC300"]):
-                        y_vals = [cycle['lifts'][lift]['rm'] + (cycle['lifts'][lift]['inc'] * sum(1 for prev_w in range(w) if cycle['success_log'][lift][prev_w] and cycle['week_completed_log'][prev_w])) for w in range(cycle['weeks'])]
+                        # Calculate RM evolution based on success and completion
+                        y_vals = []
+                        for w in range(cycle['weeks']):
+                            c = sum(1 for prev_w in range(w) if cycle['success_log'][lift][prev_w] and cycle['week_completed_log'][prev_w])
+                            y_vals.append(cycle['lifts'][lift]['rm'] + (cycle['lifts'][lift]['inc'] * c))
                         fig_w.add_trace(go.Scatter(x=weeks_range, y=y_vals, name=lift, line=dict(color=color, width=4), mode='lines+markers'))
                     fig_w.update_layout(title="Lifts Progress", height=450, template="plotly_dark" if theme_choice == "Deep Dark" else "plotly_white", yaxis=dict(autorange=True, fixedrange=False))
                     st.plotly_chart(fig_w, use_container_width=True)
