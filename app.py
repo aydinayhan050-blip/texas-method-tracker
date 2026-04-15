@@ -73,6 +73,12 @@ with st.sidebar:
 st.markdown(f"<style>.stApp {{ background-color: {bg_color}; color: {text_color}; }}</style>", unsafe_allow_html=True)
 st.title("Texas Method Training Tracker")
 
+# --- ATTENTION BANNER ---
+st.warning("""
+**⚠️ ATTENTION: TRACK YOUR PROGRESS OR STAY WEAK!** If you don't check the boxes in the **Friday Checklist**, the program won't log your success.  
+**No check = No weight increase for next week.** Finish your sets, check the box, and keep making gains!
+""")
+
 # --- DYNAMIC DEFAULTS ---
 if new_unit == "LBS":
     def_inc_s, def_inc_b, def_inc_o, def_inc_d = "5", "5", "5", "10"
@@ -82,7 +88,7 @@ else:
 # --- CREATE NEW CYCLE ---
 with st.expander("👊 Create New Cycle", expanded=len(st.session_state.cycles) == 0):
     with st.form("new_cycle_form"):
-        c_name = st.text_input("📝 Cycle Name", placeholder="e.g. Bulk Season")
+        c_name = st.text_input("📝 Cycle Name", placeholder="e.g. Winter Bulk")
         c_weeks = st.slider("⏳ Duration (Weeks)", 1, 16, 8)
         c_bw = st.number_input(f"⚖️ Initial BW ({new_unit})", value=180.0 if new_unit == "LBS" else 80.0)
         st.write("---")
@@ -102,11 +108,11 @@ with st.expander("👊 Create New Cycle", expanded=len(st.session_state.cycles) 
         
         if st.form_submit_button("🚀 Start Cycle"):
             if not c_name.strip():
-                st.error("Please name your cycle first!")
+                st.error("Yo! Name your cycle before you start!")
             else:
                 st.session_state.cycles.append({
                     "name": c_name, 
-                    "start_date": datetime.now().strftime("%Y-%m-%d"), # DATE CAPTURED HERE
+                    "start_date": datetime.now().strftime("%Y-%m-%d"),
                     "weeks": int(c_weeks),
                     "success_log": {m: [False]*int(c_weeks) for m in ["Squat", "Bench", "OHP", "Deadlift"]},
                     "failed_week_log": [False] * int(c_weeks),
@@ -124,9 +130,10 @@ if st.session_state.cycles:
         true_idx = len(st.session_state.cycles) - 1 - idx
         with st.container(border=True):
             head1, head2 = st.columns([0.85, 0.15])
-            # Displaying Start Date
+            head1.subheader(f"⚡ {cycle['name']}")
+            # Date moved under the name
             start_val = cycle.get("start_date", datetime.now().strftime("%Y-%m-%d"))
-            head1.subheader(f"⚡ {cycle['name']} (Started: {start_val})")
+            head1.markdown(f"*Started on: {start_val}*")
             
             confirm_key = f"del_confirm_{true_idx}"
             if confirm_key not in st.session_state: st.session_state[confirm_key] = False
@@ -135,7 +142,7 @@ if st.session_state.cycles:
                 if head2.button("🗑️ Delete", key=f"del_btn_{true_idx}"):
                     st.session_state[confirm_key] = True; st.rerun()
             else:
-                head2.warning("Sure?")
+                head2.warning("You sure?")
                 c1, c2 = head2.columns(2)
                 if c1.button("✅", key=f"y_{true_idx}"):
                     st.session_state.cycles.pop(true_idx)
@@ -149,7 +156,7 @@ if st.session_state.cycles:
             for w_i in range(cycle['weeks']):
                 with w_tabs[w_i]:
                     counts = {m: sum(1 for s in cycle['success_log'][m][:w_i] if s) for m in ["Squat", "Bench", "OHP", "Deadlift"]}
-                    if cycle['failed_week_log'][w_i]: st.warning("⚠️ Week Failed.")
+                    if cycle['failed_week_log'][w_i]: st.warning("⚠️ This week was marked as a FAIL.")
 
                     st.write("⚖️ **Bodyweight**")
                     new_bw = st.number_input("BW", value=cycle['weight_log'][w_i], key=f"bw_{true_idx}_{w_i}", label_visibility="collapsed")
@@ -173,15 +180,15 @@ if st.session_state.cycles:
                                 st.info(f"**{lift_ems.get(mv, mv)}**: {reps} @ **{format_weight(wgt)} {new_unit}**")
                             
                             if "Wednesday" in d_title:
-                                st.success("🦾 **Pullups**: 3 x Max")
-                                st.success("🏹 **Back Extensions**: 5 x 10")
+                                st.success("🦾 **Pullups**: 3 Sets x Max Reps")
+                                st.success("🏹 **Back Extensions**: 5 Sets x 10 Reps")
 
                             if "Friday" in d_title:
                                 st.divider()
-                                st.write("🏆 **Friday Checklist:**") # UPDATED TITLE
+                                st.write("🏆 **Friday Checklist:**")
                                 for mv in moves:
                                     val = cycle['success_log'][mv][w_i]
-                                    if st.checkbox(f"Completed {mv}", value=val, key=f"c_{true_idx}_{w_i}_{mv}"):
+                                    if st.checkbox(f"Crushed {mv}", value=val, key=f"c_{true_idx}_{w_i}_{mv}"):
                                         if not val:
                                             cycle['success_log'][mv][w_i] = True
                                             cycle['failed_week_log'][w_i] = False
@@ -196,4 +203,4 @@ if st.session_state.cycles:
 
     st.markdown('<div style="text-align: center; color: #555; font-size: 0.8rem; margin-top: 50px;">By Aydin Ayhan</div>', unsafe_allow_html=True)
 else:
-    st.info("👋 No active cycles. Fill the form above to start!")
+    st.info("👋 No active cycles. Fill out the form above to get after it!")
