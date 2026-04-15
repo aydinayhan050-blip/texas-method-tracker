@@ -47,13 +47,6 @@ st.markdown("""
     <style>
     div[data-testid="stStatusWidget"] { display: none !important; }
     * { opacity: 1 !important; filter: none !important; }
-    div.stBlock[data-stale="true"], 
-    div[data-testid="stAppViewBlockContainer"] [data-stale="true"],
-    .element-container[data-stale="true"] {
-        opacity: 1 !important;
-        filter: none !important;
-        pointer-events: auto !important;
-    }
     .big-timer {
         font-size: 110px !important;
         font-weight: 900;
@@ -167,7 +160,6 @@ if st.session_state.cycles:
                         st.divider()
 
                         counts = {m: sum(1 for prev in range(w_i) if cycle['success_log'][m][prev]) for m in ["Squat", "Bench", "OHP", "Deadlift"]}
-                        
                         is_a = (w_i + 1) % 2 != 0
                         m_p, w_p = ("Bench", "OHP") if is_a else ("OHP", "Bench")
                         
@@ -190,10 +182,12 @@ if st.session_state.cycles:
                                         
                                         with st.container(border=True):
                                             st.markdown(f"**{lift_emojis.get(mv, '')} {mv}**")
-                                            # Burada ağırlığın yanına yüzde bilgisini ekledim
-                                            st.markdown(f"#### {set_count}x5 @ {format_weight(calc_w)} {u} ({int(pct*100)}%)")
+                                            # YÜZDE GÖSTERİMİ GÜNCELLENDİ
+                                            st.markdown(f"#### {set_count}x5 @ {format_weight(calc_w)} {u} ({int(pct*100)}% of 5RM)")
                                             for s_i in range(set_count):
-                                                if st.checkbox(f"S{s_i+1}", key=f"ck_{t_idx}_{w_i}_{d_name}_{mv}_{s_i}"):
+                                                check_id = f"ck_{t_idx}_{w_i}_{d_name}_{mv}_{s_i}"
+                                                if st.checkbox(f"S{s_i+1}", key=check_id):
+                                                    # Timer Tetikleyici (Checkbox'a basılınca çalışır)
                                                     total = rest_choice * 60
                                                     prog_bar = st.progress(0)
                                                     for s in range(total, -1, -1):
@@ -202,7 +196,8 @@ if st.session_state.cycles:
                                                         prog_bar.progress((total-s)/total)
                                                         time.sleep(1)
                                                     timer_place.markdown('<p class="ready-text">READY! 🔥</p>', unsafe_allow_html=True)
-                                                    prog_bar.empty(); st.balloons()
+                                                    prog_bar.empty()
+                                                    st.balloons()
                                             
                                             with st.expander("Warm-up"):
                                                 bar_w = 45 if u == "LBS" else 20
@@ -217,7 +212,8 @@ if st.session_state.cycles:
                                 st.divider()
                                 if st.button(f"Complete {d_name}", key=f"btn_{d_key}", use_container_width=True):
                                     cycle['day_completed_log'][d_key] = True
-                                    save_data(); st.rerun()
+                                    save_data()
+                                    st.rerun()
 
                                 if "Friday" in d_name:
                                     st.subheader("🏆 Friday Checklist")
@@ -229,7 +225,8 @@ if st.session_state.cycles:
                                     
                                     if st.button("✅ Log Entire Week", key=f"fw_{t_idx}_{w_i}", use_container_width=True, type="primary"):
                                         cycle['week_completed_log'][w_i] = True
-                                        save_data(); st.rerun()
+                                        save_data()
+                                        st.rerun()
 
             if st.session_state[p_key]:
                 st.divider()
