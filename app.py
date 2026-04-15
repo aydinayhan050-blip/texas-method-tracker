@@ -23,6 +23,7 @@ def load_data():
                 if "week_completed_log" not in cycle: cycle["week_completed_log"] = [False] * cycle["weeks"]
                 if "day_completed_log" not in cycle: cycle["day_completed_log"] = {}
                 if "weight_log" not in cycle: cycle["weight_log"] = [80.0] * cycle["weeks"]
+                if "success_log" not in cycle: cycle["success_log"] = {m: [False]*cycle["weeks"] for m in ["Squat", "Bench", "OHP", "Deadlift"]}
             return cycles, unit
     return [], "KG"
 
@@ -170,8 +171,10 @@ if st.session_state.cycles:
                         lift_emojis = {"Squat": "🏋️", "Bench": "💪", "OHP": "🥥", "Deadlift": "⛓️"}
 
                         for d_name, pct, moves in days:
-                            d_key = f"w{w_i}_{d_name}"
+                            # BENZERSİZ GÜN ANAHTARI
+                            d_key = f"cycle{t_idx}_w{w_i}_{d_name}"
                             is_done = cycle['day_completed_log'].get(d_key, False)
+                            
                             with st.expander(f"### 📅 {d_name} {'✅' if is_done else ''}"):
                                 lift_cols = st.columns(len(moves))
                                 for m_idx, mv in enumerate(moves):
@@ -182,12 +185,10 @@ if st.session_state.cycles:
                                         
                                         with st.container(border=True):
                                             st.markdown(f"**{lift_emojis.get(mv, '')} {mv}**")
-                                            # YÜZDE GÖSTERİMİ GÜNCELLENDİ
                                             st.markdown(f"#### {set_count}x5 @ {format_weight(calc_w)} {u} ({int(pct*100)}% of 5RM)")
                                             for s_i in range(set_count):
                                                 check_id = f"ck_{t_idx}_{w_i}_{d_name}_{mv}_{s_i}"
                                                 if st.checkbox(f"S{s_i+1}", key=check_id):
-                                                    # Timer Tetikleyici (Checkbox'a basılınca çalışır)
                                                     total = rest_choice * 60
                                                     prog_bar = st.progress(0)
                                                     for s in range(total, -1, -1):
@@ -196,8 +197,7 @@ if st.session_state.cycles:
                                                         prog_bar.progress((total-s)/total)
                                                         time.sleep(1)
                                                     timer_place.markdown('<p class="ready-text">READY! 🔥</p>', unsafe_allow_html=True)
-                                                    prog_bar.empty()
-                                                    st.balloons()
+                                                    prog_bar.empty(); st.balloons()
                                             
                                             with st.expander("Warm-up"):
                                                 bar_w = 45 if u == "LBS" else 20
@@ -210,23 +210,23 @@ if st.session_state.cycles:
                                     st.info("🦾 **Pullups**: 3 x Max | 🏹 **Back Extensions**: 5 x 10")
                                 
                                 st.divider()
-                                if st.button(f"Complete {d_name}", key=f"btn_{d_key}", use_container_width=True):
+                                # GÜN TAMAMLAMA BUTONU
+                                if st.button(f"Mark {d_name} as Complete", key=f"btn_done_{d_key}", use_container_width=True):
                                     cycle['day_completed_log'][d_key] = True
-                                    save_data()
-                                    st.rerun()
+                                    save_data(); st.rerun()
 
                                 if "Friday" in d_name:
                                     st.subheader("🏆 Friday Checklist")
-                                    st.caption("ℹ️ *If you failed a lift, leave the box unchecked. This ensures the weight won't increase for that specific lift next week.*")
+                                    st.caption("ℹ️ *If you failed a lift, leave the box unchecked to stay on the same weight next week.*")
                                     cc = st.columns(len(moves))
                                     for mi, mv in enumerate(moves):
                                         with cc[mi]:
-                                            cycle['success_log'][mv][w_i] = st.checkbox(f"Crushed {mv}", value=cycle['success_log'][mv][w_i], key=f"f_{t_idx}_{w_i}_{mv}")
+                                            # CUMA BAŞARI KAYDI
+                                            cycle['success_log'][mv][w_i] = st.checkbox(f"Crushed {mv}", value=cycle['success_log'][mv][w_i], key=f"fchk_{t_idx}_{w_i}_{mv}")
                                     
-                                    if st.button("✅ Log Entire Week", key=f"fw_{t_idx}_{w_i}", use_container_width=True, type="primary"):
+                                    if st.button("✅ Finish & Log Week", key=f"btn_week_done_{t_idx}_{w_i}", use_container_width=True, type="primary"):
                                         cycle['week_completed_log'][w_i] = True
-                                        save_data()
-                                        st.rerun()
+                                        save_data(); st.rerun()
 
             if st.session_state[p_key]:
                 st.divider()
