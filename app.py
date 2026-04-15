@@ -102,6 +102,9 @@ if 'cycles' not in st.session_state:
 if 'timer_paused' not in st.session_state:
     st.session_state.timer_paused = False
 
+if 'active_timer_id' not in st.session_state:
+    st.session_state.active_timer_id = None
+
 # --- SIDEBAR ---
 with st.sidebar:
     st.header("⚙️ Settings")
@@ -295,8 +298,10 @@ if st.session_state.cycles:
                                                         st.session_state[prev_state_key] = True
                                                         st.session_state.timer_paused = False
                                                         st.session_state[rem_key] = rest_choice * 60
+                                                        st.session_state.active_timer_id = cb_key # SETI AKTIF ET
                                                     
-                                                    if checked and st.session_state[rem_key] > 0:
+                                                    # SADECE AKTIF OLAN SETIN TIMER'I CALISSIN
+                                                    if checked and st.session_state[rem_key] > 0 and st.session_state.active_timer_id == cb_key:
                                                         if not st.session_state.timer_paused:
                                                             while st.session_state[rem_key] >= 0:
                                                                 m, sc = divmod(st.session_state[rem_key], 60)
@@ -321,7 +326,6 @@ if st.session_state.cycles:
                                 if "Friday" not in d_name:
                                     if "Monday" in d_name and cycle.get("variant") == "Standard (Power Clean)":
                                         st.subheader("⚡ Power Clean Checklist")
-                                        # ENGLISH DESCRIPTION HERE
                                         st.caption("ℹ️ **What's the play?** If you crushed every set with solid form today, check this box. Doing so triggers a weight increase for next week. If you struggled or your form was shit, leave it blank—we'll stay at this weight to dial it in.")
                                         pc_key = f"pc_success_{t_idx}_{w_i}"
                                         cycle['success_log']["Power Clean"][w_i] = st.checkbox("⚡ Crushed Power Clean", value=cycle['success_log']["Power Clean"][w_i], key=pc_key)
@@ -336,13 +340,12 @@ if st.session_state.cycles:
                                     
                                 else:
                                     st.subheader("🏆 Friday Checklist")
-                                    # ENGLISH DESCRIPTION HERE
                                     st.caption("ℹ️ **Judgment Day!** Mark the lifts you successfully smashed today. The checked ones will get heavier next week based on your chosen increments. If you missed reps, leave 'em blank and stay put. Don't bullshit yourself, boss!")
                                     cc = st.columns(len(moves))
                                     for mi, mv in enumerate(moves):
                                         with cc[mi]:
-                                            cb_key = f"success_chk_{t_idx}_{w_i}_{mv}"
-                                            cycle['success_log'][mv][w_i] = st.checkbox(f"Crushed {mv}", value=cycle['success_log'][mv][w_i], key=cb_key)
+                                            cb_key_final = f"success_chk_{t_idx}_{w_i}_{mv}"
+                                            cycle['success_log'][mv][w_i] = st.checkbox(f"Crushed {mv}", value=cycle['success_log'][mv][w_i], key=cb_key_final)
 
                                     if not is_done:
                                         if st.button("🏁 Finish & Log Week", key=f"final_btn_{t_idx}_{w_i}", use_container_width=True, type="primary"):
