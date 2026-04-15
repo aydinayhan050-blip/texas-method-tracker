@@ -70,7 +70,6 @@ with st.sidebar:
         if os.path.exists(DB_FILE): os.remove(DB_FILE)
         st.rerun()
     
-    # RELOCATED CREDITS
     st.markdown('<div style="text-align: right; color: gray; font-size: 0.7rem; margin-top: 5px;">By Aydin Ayhan</div>', unsafe_allow_html=True)
 
 st.markdown(f"<style>.stApp {{ background-color: {bg_color}; color: {text_color}; }}</style>", unsafe_allow_html=True)
@@ -132,54 +131,59 @@ if st.session_state.cycles:
     for idx, cycle in enumerate(reversed(st.session_state.cycles)):
         true_idx = len(st.session_state.cycles) - 1 - idx
         with st.container(border=True):
-            head1, head2, head3 = st.columns([0.7, 0.15, 0.15])
+            head1, head2, head3, head4 = st.columns([0.55, 0.15, 0.15, 0.15])
             head1.subheader(f"⚡ {cycle['name']}")
             start_val = cycle.get("start_date", datetime.now().strftime("%Y-%m-%d"))
             head1.markdown(f"*Started on: {start_val}*")
             
-            # --- PROGRESS CHART BUTTON ---
-            chart_key = f"show_chart_{true_idx}"
-            if chart_key not in st.session_state: st.session_state[chart_key] = False
+            # --- TWO SEPARATE CHART BUTTONS ---
+            prog_key = f"show_prog_{true_idx}"
+            wgt_key = f"show_wgt_{true_idx}"
+            if prog_key not in st.session_state: st.session_state[prog_key] = False
+            if wgt_key not in st.session_state: st.session_state[wgt_key] = False
             
-            if head2.button("📊 Progress", key=f"btn_chart_{true_idx}", use_container_width=True):
-                st.session_state[chart_key] = not st.session_state[chart_key]
+            if head2.button("📊 Progress", key=f"btn_p_{true_idx}", use_container_width=True):
+                st.session_state[prog_key] = not st.session_state[prog_key]
+                st.session_state[wgt_key] = False
 
-            # --- DELETE WITH CONFIRMATION ---
+            if head3.button("📈 Weights", key=f"btn_w_{true_idx}", use_container_width=True):
+                st.session_state[wgt_key] = not st.session_state[wgt_key]
+                st.session_state[prog_key] = False
+
             confirm_key = f"del_confirm_{true_idx}"
             if confirm_key not in st.session_state: st.session_state[confirm_key] = False
             
             if not st.session_state[confirm_key]:
-                if head3.button("🗑️ Delete", key=f"del_btn_{true_idx}", use_container_width=True):
+                if head4.button("🗑️ Delete", key=f"del_btn_{true_idx}", use_container_width=True):
                     st.session_state[confirm_key] = True; st.rerun()
             else:
-                head3.warning("You sure?")
-                c1, c2 = head3.columns(2)
+                head4.warning("Sure?")
+                c1, c2 = head4.columns(2)
                 if c1.button("✅", key=f"y_{true_idx}"):
-                    st.session_state.cycles.pop(true_idx)
-                    st.session_state[confirm_key] = False; save_data(); st.rerun()
+                    st.session_state.cycles.pop(true_idx); save_data(); st.rerun()
                 if c2.button("❌", key=f"n_{true_idx}"):
                     st.session_state[confirm_key] = False; st.rerun()
 
-            # --- RENDER PROGRESS CHART ---
-            if st.session_state[chart_key]:
-                weeks_range = list(range(1, cycle['weeks'] + 1))
-                fig = make_subplots(specs=[[{"secondary_y": True}]])
-                
-                # Add Lifts
-                for lift, color in zip(["Squat", "Bench", "OHP", "Deadlift"], ["#FF4B4B", "#1C83E1", "#00C49A", "#FFC300"]):
+            weeks_range = list(range(1, cycle['weeks'] + 1))
+
+            # --- PROGRESS CHART (BW ONLY) ---
+            if st.session_state[prog_key]:
+                fig_p = go.Figure()
+                fig_p.add_trace(go.Scatter(x=weeks_range, y=cycle['weight_log'], name="Bodyweight", line=dict(color="#00C49A", width=4)))
+                fig_p.update_layout(title=f"Bodyweight Progress - {cycle['name']}", xaxis_title="Week", yaxis_title=f"BW ({new_unit})", height=350, template="plotly_dark" if theme_choice == "Deep Dark" else "plotly_white")
+                st.plotly_chart(fig_p, use_container_width=True)
+
+            # --- WEIGHTS CHART (LIFTS ONLY) ---
+            if st.session_state[wgt_key]:
+                fig_w = go.Figure()
+                for lift, color in zip(["Squat", "Bench", "OHP", "Deadlift"], ["#FF4B4B", "#1C83E1", "#FFFFFF" if theme_choice=="Deep Dark" else "#000000", "#FFC300"]):
                     weights = []
                     for w_i in range(cycle['weeks']):
                         c_count = sum(1 for s in cycle['success_log'][lift][:w_i] if s)
                         weights.append(cycle['lifts'][lift]['rm'] + (cycle['lifts'][lift]['inc'] * c_count))
-                    fig.add_trace(go.Scatter(x=weeks_range, y=weights, name=lift, line=dict(color=color, width=3)), secondary_y=False)
-                
-                # Add BW
-                fig.add_trace(go.Scatter(x=weeks_range, y=cycle['weight_log'], name="Bodyweight", line=dict(color="gray", dash='dash')), secondary_y=True)
-                
-                fig.update_layout(title=f"Evolution of {cycle['name']}", xaxis_title="Week", height=400, template="plotly_dark" if theme_choice == "Deep Dark" else "plotly_white")
-                fig.update_yaxes(title_text=f"Lift Weight ({new_unit})", secondary_y=False)
-                fig.update_yaxes(title_text=f"Bodyweight ({new_unit})", secondary_y=True)
-                st.plotly_chart(fig, use_container_width=True)
+                    fig_w.add_trace(go.Scatter(x=weeks_range, y=weights, name=lift, line=dict(color=color, width=3)))
+                fig_w.update_layout(title=f"Lift Strength Gains - {cycle['name']}", xaxis_title="Week", yaxis_title=f"Weight ({new_unit})", height=350, template="plotly_dark" if theme_choice == "Deep Dark" else "plotly_white")
+                st.plotly_chart(fig_w, use_container_width=True)
 
             week_titles = [f"W{w_i+1} {'✅' if (any(cycle['success_log'][m][w_i] for m in ['Squat','Bench','OHP','Deadlift']) or cycle['failed_week_log'][w_i]) else '🏋️'}" for w_i in range(cycle['weeks'])]
             w_tabs = st.tabs(week_titles)
@@ -187,7 +191,7 @@ if st.session_state.cycles:
             for w_i in range(cycle['weeks']):
                 with w_tabs[w_i]:
                     counts = {m: sum(1 for s in cycle['success_log'][m][:w_i] if s) for m in ["Squat", "Bench", "OHP", "Deadlift"]}
-                    if cycle['failed_week_log'][w_i]: st.warning("⚠️ This week was marked as a FAIL.")
+                    if cycle['failed_week_log'][w_i]: st.warning("⚠️ Week Failed.")
 
                     st.write("⚖️ **Bodyweight**")
                     new_bw = st.number_input("BW", value=cycle['weight_log'][w_i], key=f"bw_{true_idx}_{w_i}", label_visibility="collapsed")
@@ -211,8 +215,8 @@ if st.session_state.cycles:
                                 st.info(f"**{lift_ems.get(mv, mv)}**: {reps} @ **{format_weight(wgt)} {new_unit}**")
                             
                             if "Wednesday" in d_title:
-                                st.success("🦾 **Pullups**: 3 Sets x Max Reps")
-                                st.success("🏹 **Back Extensions**: 5 Sets x 10 Reps")
+                                st.success("🦾 **Pullups**: 3 Sets x Max")
+                                st.success("🏹 **Back Extensions**: 5 Sets x 10")
 
                             if "Friday" in d_title:
                                 st.divider()
