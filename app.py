@@ -73,7 +73,7 @@ with st.sidebar:
 st.markdown(f"<style>.stApp {{ background-color: {bg_color}; color: {text_color}; }}</style>", unsafe_allow_html=True)
 st.title("Texas Method Training Tracker")
 
-# --- DYNAMIC DEFAULTS BASED ON UNIT ---
+# --- DYNAMIC DEFAULTS ---
 if new_unit == "LBS":
     def_inc_s, def_inc_b, def_inc_o, def_inc_d = "5", "5", "5", "10"
 else:
@@ -82,7 +82,7 @@ else:
 # --- CREATE NEW CYCLE ---
 with st.expander("👊 Create New Cycle", expanded=len(st.session_state.cycles) == 0):
     with st.form("new_cycle_form"):
-        c_name = st.text_input("📝 Cycle Name", placeholder="e.g. Road to 500 SBD")
+        c_name = st.text_input("📝 Cycle Name", placeholder="e.g. Bulk Season")
         c_weeks = st.slider("⏳ Duration (Weeks)", 1, 16, 8)
         c_bw = st.number_input(f"⚖️ Initial BW ({new_unit})", value=180.0 if new_unit == "LBS" else 80.0)
         st.write("---")
@@ -106,7 +106,7 @@ with st.expander("👊 Create New Cycle", expanded=len(st.session_state.cycles) 
             else:
                 st.session_state.cycles.append({
                     "name": c_name, 
-                    "start_date": datetime.now().strftime("%Y-%m-%d"),
+                    "start_date": datetime.now().strftime("%Y-%m-%d"), # DATE CAPTURED HERE
                     "weeks": int(c_weeks),
                     "success_log": {m: [False]*int(c_weeks) for m in ["Squat", "Bench", "OHP", "Deadlift"]},
                     "failed_week_log": [False] * int(c_weeks),
@@ -118,43 +118,38 @@ with st.expander("👊 Create New Cycle", expanded=len(st.session_state.cycles) 
                 })
                 save_data(); st.rerun()
 
-# --- DISPLAY CYCLES ---
+# --- DISPLAY ---
 if st.session_state.cycles:
     for idx, cycle in enumerate(reversed(st.session_state.cycles)):
         true_idx = len(st.session_state.cycles) - 1 - idx
         with st.container(border=True):
             head1, head2 = st.columns([0.85, 0.15])
-            s_date = cycle.get("start_date", "N/A")
-            head1.subheader(f"⚡ {cycle['name']} (Started: {s_date})")
+            # Displaying Start Date
+            start_val = cycle.get("start_date", datetime.now().strftime("%Y-%m-%d"))
+            head1.subheader(f"⚡ {cycle['name']} (Started: {start_val})")
             
             confirm_key = f"del_confirm_{true_idx}"
             if confirm_key not in st.session_state: st.session_state[confirm_key] = False
             
             if not st.session_state[confirm_key]:
                 if head2.button("🗑️ Delete", key=f"del_btn_{true_idx}"):
-                    st.session_state[confirm_key] = True
-                    st.rerun()
+                    st.session_state[confirm_key] = True; st.rerun()
             else:
                 head2.warning("Sure?")
                 c1, c2 = head2.columns(2)
                 if c1.button("✅", key=f"y_{true_idx}"):
                     st.session_state.cycles.pop(true_idx)
-                    st.session_state[confirm_key] = False
-                    save_data(); st.rerun()
+                    st.session_state[confirm_key] = False; save_data(); st.rerun()
                 if c2.button("❌", key=f"n_{true_idx}"):
-                    st.session_state[confirm_key] = False
-                    st.rerun()
+                    st.session_state[confirm_key] = False; st.rerun()
 
-            week_titles = []
-            for w_i in range(cycle['weeks']):
-                is_comp = any(cycle['success_log'][mv][w_i] for mv in ["Squat", "Bench", "OHP", "Deadlift"]) or cycle['failed_week_log'][w_i]
-                week_titles.append(f"W{w_i+1} {'✅' if is_comp else '🏋️'}")
-
+            week_titles = [f"W{w_i+1} {'✅' if (any(cycle['success_log'][m][w_i] for m in ['Squat','Bench','OHP','Deadlift']) or cycle['failed_week_log'][w_i]) else '🏋️'}" for w_i in range(cycle['weeks'])]
             w_tabs = st.tabs(week_titles)
+            
             for w_i in range(cycle['weeks']):
                 with w_tabs[w_i]:
-                    counts = {mv: sum(1 for s in cycle['success_log'][mv][:w_i] if s == True) for mv in ["Squat", "Bench", "OHP", "Deadlift"]}
-                    if cycle['failed_week_log'][w_i]: st.warning("⚠️ This week was marked as Failed.")
+                    counts = {m: sum(1 for s in cycle['success_log'][m][:w_i] if s) for m in ["Squat", "Bench", "OHP", "Deadlift"]}
+                    if cycle['failed_week_log'][w_i]: st.warning("⚠️ Week Failed.")
 
                     st.write("⚖️ **Bodyweight**")
                     new_bw = st.number_input("BW", value=cycle['weight_log'][w_i], key=f"bw_{true_idx}_{w_i}", label_visibility="collapsed")
@@ -163,28 +158,27 @@ if st.session_state.cycles:
 
                     st.divider()
                     is_a = (w_i + 1) % 2 != 0
-                    m_pres, w_pres = ("Bench", "OHP") if is_a else ("OHP", "Bench")
+                    m_p, w_p = ("Bench", "OHP") if is_a else ("OHP", "Bench")
                     cols = st.columns(3)
-                    lift_emojis = {"Squat": "🏋️ Squat", "Bench": "💪 Bench", "OHP": "🥥 OHP", "Deadlift": "🔥 Deadlift"}
-                    days = [("📅 Monday (Volume)", 0.90, "5x5", ["Squat", m_pres, "Deadlift"]),
-                            ("📅 Wednesday (Light)", 0.70, "2x5", ["Squat", w_pres]),
-                            ("📅 Friday (Intensity)", 1.00, "1x5", ["Squat", m_pres, "Deadlift"])]
+                    lift_ems = {"Squat": "🏋️ Squat", "Bench": "💪 Bench", "OHP": "🥥 OHP", "Deadlift": "🔥 Deadlift"}
+                    days = [("📅 Monday (Volume)", 0.90, "5x5", ["Squat", m_p, "Deadlift"]),
+                            ("📅 Wednesday (Light)", 0.70, "2x5", ["Squat", w_p]),
+                            ("📅 Friday (Intensity)", 1.00, "1x5", ["Squat", m_p, "Deadlift"])]
 
-                    for d_idx, (day_title, pct, rep_scheme, moves) in enumerate(days):
+                    for d_idx, (d_title, pct, reps, moves) in enumerate(days):
                         with cols[d_idx]:
-                            st.markdown(f"#### {day_title}")
+                            st.markdown(f"#### {d_title}")
                             for mv in moves:
-                                base_5rm = cycle['lifts'][mv]['rm'] + (cycle['lifts'][mv]['inc'] * counts[mv])
-                                work_weight = round_to_plates(base_5rm * pct, plate)
-                                st.info(f"**{lift_emojis.get(mv, mv)}**: {rep_scheme} @ **{format_weight(work_weight)} {new_unit}**")
+                                wgt = round_to_plates((cycle['lifts'][mv]['rm'] + (cycle['lifts'][mv]['inc'] * counts[mv])) * pct, plate)
+                                st.info(f"**{lift_ems.get(mv, mv)}**: {reps} @ **{format_weight(wgt)} {new_unit}**")
                             
-                            if "Wednesday" in day_title:
-                                st.success("🦾 **Pullups**: 3 sets x Max")
-                                st.success("🏹 **Back Extensions**: 5 sets x 10 reps")
+                            if "Wednesday" in d_title:
+                                st.success("🦾 **Pullups**: 3 x Max")
+                                st.success("🏹 **Back Extensions**: 5 x 10")
 
-                            if "Friday" in day_title:
+                            if "Friday" in d_title:
                                 st.divider()
-                                st.write("🏆 **Check Success:**")
+                                st.write("🏆 **Friday Checklist:**") # UPDATED TITLE
                                 for mv in moves:
                                     val = cycle['success_log'][mv][w_i]
                                     if st.checkbox(f"Completed {mv}", value=val, key=f"c_{true_idx}_{w_i}_{mv}"):
@@ -193,14 +187,13 @@ if st.session_state.cycles:
                                             cycle['failed_week_log'][w_i] = False
                                             save_data(); st.rerun()
                                     elif val:
-                                        cycle['success_log'][mv][w_i] = False
-                                        save_data(); st.rerun()
+                                        cycle['success_log'][mv][w_i] = False; save_data(); st.rerun()
                                 
                                 if st.button("💀 Mark Week as Failed", key=f"f_{true_idx}_{w_i}", use_container_width=True):
                                     cycle['failed_week_log'][w_i] = True
-                                    for mv in ["Squat", "Bench", "OHP", "Deadlift"]: cycle['success_log'][mv][w_i] = False
+                                    for m in ["Squat", "Bench", "OHP", "Deadlift"]: cycle['success_log'][m][w_i] = False
                                     save_data(); st.rerun()
 
     st.markdown('<div style="text-align: center; color: #555; font-size: 0.8rem; margin-top: 50px;">By Aydin Ayhan</div>', unsafe_allow_html=True)
 else:
-    st.info("👋 No active cycles. Fill the form above to start your Texas Method journey!")
+    st.info("👋 No active cycles. Fill the form above to start!")
