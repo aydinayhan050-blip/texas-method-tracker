@@ -46,7 +46,6 @@ def get_warmup_sets(target_weight, unit, plate_inc):
 # --- UI CONFIG ---
 st.set_page_config(page_title="Texas Method Tracker", layout="wide")
 
-# Veriyi dosyadan yükle
 if 'cycles' not in st.session_state:
     st.session_state.cycles = load_data()
 if 'current_unit' not in st.session_state:
@@ -68,7 +67,7 @@ with st.sidebar:
                 cycle['lifts'][lift]['inc'] = convert_weight(cycle['lifts'][lift]['inc'], new_unit)
             cycle['weight_log'] = [convert_weight(w, new_unit) for w in cycle['weight_log']]
         st.session_state.current_unit = new_unit
-        save_data() # Kaydet
+        save_data()
         st.rerun()
 
     plate = st.number_input(f"Plates ({new_unit})", value=2.5 if new_unit == "LBS" else 1.25, step=0.25)
@@ -88,21 +87,13 @@ st.markdown(f"""
         color: white !important;
         border: none !important;
     }}
-    div[data-testid="stNotification"] svg {{
-        fill: white !important;
-    }}
+    div[data-testid="stNotification"] svg {{ fill: white !important; }}
     .warning-box {{ 
-        background-color: #000000; 
-        padding: 15px; 
-        border-radius: 8px; 
-        border: 2px solid #ff0000; 
-        color: #ffffff; 
-        text-align: center; 
-        margin-bottom: 25px; 
+        background-color: #000000; padding: 15px; border-radius: 8px; 
+        border: 2px solid #ff0000; color: #ffffff; text-align: center; margin-bottom: 25px; 
     }}
     .stTabs [data-baseweb="tab-list"] button[aria-selected="true"] {{
-        color: #ff0000 !important;
-        border-bottom-color: #ff0000 !important;
+        color: #ff0000 !important; border-bottom-color: #ff0000 !important;
     }}
     .warmup-text {{ font-size: 0.85rem; color: #888; margin-bottom: 2px; }}
     .signature-footer {{ text-align: center; color: #555; font-size: 0.8rem; margin-top: 50px; padding-bottom: 20px; }}
@@ -125,10 +116,10 @@ with st.expander("👊 New Cycle", expanded=len(st.session_state.cycles) == 0):
         st.write("---")
         def_inc = {"S": 5, "B": 5, "O": 5, "D": 10} if new_unit == "LBS" else {"S": 2.5, "B": 2.5, "O": 2.5, "D": 5}
         col1, col2, col3, col4 = st.columns(4)
-        with col1: s_rm, s_inc = st.text_input("Squat 5RM", "225"), st.text_input("Sq Inc", str(def_inc["S"]))
-        with col2: b_rm, b_inc = st.text_input("Bench 5RM", "185"), st.text_input("Bn Inc", str(def_inc["B"]))
-        with col3: o_rm, o_inc = st.text_input("OHP 5RM", "115"), st.text_input("Oh Inc", str(def_inc["O"]))
-        with col4: d_rm, d_inc = st.text_input("Dead 5RM", "315"), st.text_input("Dl Inc", str(def_inc["D"]))
+        with col1: s_rm, s_inc = st.text_input("Squat 5RM", "225"), st.text_input("Squat Increment", str(def_inc["S"]))
+        with col2: b_rm, b_inc = st.text_input("Bench 5RM", "185"), st.text_input("Bench Increment", str(def_inc["B"]))
+        with col3: o_rm, o_inc = st.text_input("OHP 5RM", "115"), st.text_input("OHP Increment", str(def_inc["O"]))
+        with col4: d_rm, d_inc = st.text_input("Dead 5RM", "315"), st.text_input("Deadlift Increment", str(def_inc["D"]))
             
         if st.form_submit_button("🏁 Start Cycle", use_container_width=True):
             if not c_name: st.error("Name your cycle.")
@@ -142,7 +133,7 @@ with st.expander("👊 New Cycle", expanded=len(st.session_state.cycles) == 0):
                         "OHP": {"rm": float(o_rm), "inc": float(o_inc)}, "Deadlift": {"rm": float(d_rm), "inc": float(d_inc)}
                     }
                 })
-                save_data() # Kaydet
+                save_data()
                 st.rerun()
 
 # --- DISPLAY ---
@@ -153,9 +144,9 @@ if st.session_state.cycles:
             head_col1, head_col2 = st.columns([0.7, 0.3])
             head_col1.subheader(f"⚡ {cycle['name']}")
             
+            # Delete Logic
             del_key = f"confirm_del_{true_idx}"
             if del_key not in st.session_state: st.session_state[del_key] = False
-            
             if not st.session_state[del_key]:
                 if head_col2.button("🗑️ Delete", key=f"btn_{true_idx}", use_container_width=True):
                     st.session_state[del_key] = True
@@ -165,8 +156,7 @@ if st.session_state.cycles:
                 c1, c2 = head_col2.columns(2)
                 if c1.button("Yes", key=f"yes_{true_idx}", use_container_width=True):
                     st.session_state.cycles.pop(true_idx)
-                    del st.session_state[del_key]
-                    save_data() # Kaydet
+                    save_data()
                     st.rerun()
                 if c2.button("No", key=f"no_{true_idx}", use_container_width=True):
                     st.session_state[del_key] = False
@@ -174,15 +164,35 @@ if st.session_state.cycles:
 
             tab1, tab2 = st.tabs(["📅 Training Log", "📈 Progress Analysis"])
             with tab1:
-                w_tabs = st.tabs([f"W{i+1}" for i in range(cycle['weeks'])])
+                week_titles = []
+                last_active_week = 0
+                
+                for w_i in range(cycle['weeks']):
+                    # Herhangi bir hareketin Cuma günü başarılması haftayı tamamlar
+                    any_success = any(cycle['success_log'][mv][w_i] for mv in ["Squat", "Bench", "OHP", "Deadlift"])
+                    
+                    title = f"W{w_i+1}"
+                    if any_success:
+                        title += " ✅"
+                        last_active_week = w_i + 1 # Bir sonraki haftayı odak noktası yap
+                    week_titles.append(title)
+                
+                # Fokus haftası sınırlarını koru
+                focus_week = min(last_active_week, cycle['weeks'] - 1)
+                
+                w_tabs = st.tabs(week_titles)
+                
                 for w_i in range(cycle['weeks']):
                     counts = {mv: sum(1 for s in cycle['success_log'][mv][:w_i] if s == True) for mv in ["Squat", "Bench", "OHP", "Deadlift"]}
                     with w_tabs[w_i]:
+                        if w_i == focus_week:
+                            st.info("📍 Current Active Week")
+                            
                         st.write("**Current BW**")
                         new_bw = st.number_input(f"Weight", value=cycle['weight_log'][w_i], key=f"bw_{true_idx}_{w_i}", step=0.1, label_visibility="collapsed")
                         if new_bw != cycle['weight_log'][w_i]:
                             cycle['weight_log'][w_i] = new_bw
-                            save_data() # Kaydet
+                            save_data()
                             st.rerun()
                         
                         st.divider()
@@ -218,7 +228,7 @@ if st.session_state.cycles:
                                         val = cycle['success_log'][mv][w_i]
                                         if st.checkbox(f"Crushed {mv}?", value=val, key=f"s_{true_idx}_{w_i}_{mv}") != val:
                                             cycle['success_log'][mv][w_i] = not val
-                                            save_data() # Kaydet
+                                            save_data()
                                             st.rerun()
 
             with tab2:
