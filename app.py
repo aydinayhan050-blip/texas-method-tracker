@@ -1,140 +1,229 @@
 import streamlit as st
-import json
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 from datetime import datetime
-from streamlit_local_storage import LocalStorage
 
-# --- UI & LOCAL STORAGE SETUP ---
-st.set_page_config(page_title="Texas Method Planner", layout="wide")
-local_storage = LocalStorage()
+# --- CORE FUNCTIONS ---
+def format_weight(weight):
+    val = round(float(weight), 2)
+    return f"{int(val)}" if val % 1 == 0 else f"{val}"
 
-# --- ORIGINAL LOGIC FUNCTIONS ---
-def round_to_plates(weight, smallest_plate):
-    step = smallest_plate * 2
+def round_to_plates(weight, smallest_unit):
+    step = smallest_unit * 2
     return round(weight / step) * step
 
-# --- SYNC LOGIC ---
-def sync_to_device():
-    if 'data' in st.session_state:
-        local_storage.setItem("texas_planner_db", json.dumps(st.session_state.data))
+def convert_weight(val, to_unit):
+    if to_unit == "LBS": return val * 2.20462
+    return val / 2.20462
 
-def load_from_device():
-    saved = local_storage.getItem("texas_planner_db")
-    return json.loads(saved) if saved else None
+def get_warmup_sets(target_weight, unit, plate_inc):
+    if target_weight <= 20: return []
+    bar = 20 if unit == "KG" else 45
+    if target_weight <= bar + 5: return [f"Empty Bar: 2x5 @ {bar} {unit}"]
+    steps = [(0, "Empty Bar", 2, 5), (0.4, "40%", 1, 5), (0.6, "60%", 1, 3), (0.8, "80%", 1, 2), (0.9, "90%", 1, 1)]
+    lines = []
+    for pct, label, sets, reps in steps:
+        w = bar if pct == 0 else max(bar, round_to_plates(target_weight * pct, plate_inc))
+        if w < target_weight:
+            lines.append(f"{label}: {sets}x{reps} @ **{format_weight(w)}** {unit}")
+    return lines
 
-# --- INITIALIZE SESSION ---
-if 'data' not in st.session_state:
-    stored = load_from_device()
-    if stored:
-        st.session_state.data = stored
-    else:
-        st.session_state.data = None # Start fresh
+# --- UI CONFIG ---
+st.set_page_config(page_title="Texas Method Tracker", layout="wide")
 
-# --- CSS (Hardcore Theme) ---
-st.markdown("""
+if 'cycles' not in st.session_state:
+    st.session_state.cycles = []
+if 'current_unit' not in st.session_state:
+    st.session_state.current_unit = "LBS"
+
+# --- SIDEBAR ---
+with st.sidebar:
+    st.header("⚙️ Settings")
+    new_unit = st.radio("Unit", ["LBS", "KG"], index=0)
+    theme_choice = st.selectbox("Theme", ["Deep Dark", "Light"])
+    
+    bg_color = "#0e1117" if theme_choice == "Deep Dark" else "#ffffff"
+    text_color = "#ffffff" if theme_choice == "Deep Dark" else "#0e1117"
+
+    if new_unit != st.session_state.current_unit:
+        for cycle in st.session_state.cycles:
+            for lift in cycle['lifts']:
+                cycle['lifts'][lift]['rm'] = convert_weight(cycle['lifts'][lift]['rm'], new_unit)
+                cycle['lifts'][lift]['inc'] = convert_weight(cycle['lifts'][lift]['inc'], new_unit)
+            cycle['weight_log'] = [convert_weight(w, new_unit) for w in cycle['weight_log']]
+        st.session_state.current_unit = new_unit
+        st.rerun()
+
+    plate = st.number_input(f"Plates ({new_unit})", value=2.5 if new_unit == "LBS" else 1.25, step=0.25)
+    st.divider()
+    if st.button("🔥 Wipe Everything", type="primary", use_container_width=True):
+        st.session_state.cycles = []
+        st.rerun()
+
+# --- CUSTOM CSS (Hardcore Red Overrides) ---
+st.markdown(f"""
     <style>
-    .stApp { background-color: #0e1117; color: white; }
-    .crush-box { border: 2px solid #ff0000; padding: 15px; border-radius: 10px; background-color: #1a0000; }
-    .signature { font-size: 14px; color: #555; text-align: center; margin-top: 50px; border-top: 1px solid #333; padding-top: 10px; }
+    /* Uygulama Arka Planı */
+    .stApp {{ background-color: {bg_color}; color: {text_color}; }}
+    
+    /* EGZERSİZ KUTULARI - MAVİYİ TAMAMEN SİLİP KIRMIZI YAPIYORUZ */
+    div[data-testid="stNotification"] {{
+        background-color: #cc0000 !important;
+        color: white !important;
+        border: none !important;
+    }}
+    
+    /* Kutuların içindeki ikonları da beyaz yapalım ki görünsün */
+    div[data-testid="stNotification"] svg {{
+        fill: white !important;
+    }}
+    
+    /* Uyarı Kutusu (Üstteki) */
+    .warning-box {{ 
+        background-color: #000000; 
+        padding: 15px; 
+        border-radius: 8px; 
+        border: 2px solid #ff0000; 
+        color: #ffffff; 
+        text-align: center; 
+        margin-bottom: 25px; 
+    }}
+
+    /* Tab Başlıkları */
+    .stTabs [data-baseweb="tab-list"] button[aria-selected="true"] {{
+        color: #ff0000 !important;
+        border-bottom-color: #ff0000 !important;
+    }}
+
+    .warmup-text {{ font-size: 0.85rem; color: #888; margin-bottom: 2px; }}
+    .signature-footer {{ text-align: center; color: #555; font-size: 0.8rem; margin-top: 50px; padding-bottom: 20px; }}
     </style>
     """, unsafe_allow_html=True)
 
-st.title("Ultimate Texas Method Planner 🦾")
+st.title("The Texas Method Tracker")
 
-# --- SIDEBAR SETTINGS ---
-with st.sidebar:
-    st.header("⚙️ Configuration")
-    smallest_plate = st.number_input("Smallest Plate (kg)", value=1.25, step=0.25)
-    if st.button("🔥 Reset All Progress", type="primary"):
-        st.session_state.data = None
-        sync_to_device()
-        st.rerun()
+st.markdown("""<div class="warning-box">
+    <b style="color: #ff0000;">ATTENTION:</b> Unchecked Friday boxes = No progress for next week.
+</div>""", unsafe_allow_html=True)
 
-# --- INPUT FORM (Only shows if no data) ---
-if st.session_state.data is None:
-    with st.form("init_form"):
-        st.subheader("Enter Starting 5RM Values")
-        weeks = st.slider("Weeks to Generate", 1, 12, 8)
-        col1, col2 = st.columns(2)
-        with col1:
-            sq = st.number_input("Squat 5RM (kg)", value=100.0)
-            bp = st.number_input("Bench Press 5RM (kg)", value=80.0)
-        with col2:
-            ohp = st.number_input("Overhead Press 5RM (kg)", value=50.0)
-            dl = st.number_input("Deadlift 5RM (kg)", value=140.0)
+# --- CREATE CYCLE ---
+with st.expander("👊 New Cycle", expanded=len(st.session_state.cycles) == 0):
+    with st.form("new_cycle_form"):
+        c_name = st.text_input("Cycle Name", placeholder="e.g., Heavy Duty")
+        c_weeks = st.slider("Weeks", 1, 16, 8)
+        c_bw = st.number_input(f"Initial BW ({new_unit})", value=180.0 if new_unit == "LBS" else 80.0, step=0.5)
         
-        if st.form_submit_button("Generate Cycle"):
-            st.session_state.data = {
-                "weeks_total": weeks,
-                "lifts": {
-                    "Squat": {"current_5rm": sq, "inc": 2.5},
-                    "Bench Press": {"current_5rm": bp, "inc": 2.5},
-                    "Overhead Press": {"current_5rm": ohp, "inc": 1.0},
-                    "Deadlift": {"current_5rm": dl, "inc": 5.0}
-                },
-                "history": {} # To track which Friday PRs were crushed
-            }
-            sync_to_device()
-            st.rerun()
-
-# --- MAIN PLANNER ---
-if st.session_state.data:
-    data = st.session_state.data
-    
-    for w in range(1, data["weeks_total"] + 1):
-        with st.expander(f"WEEK {w} " + ("(Pattern A)" if w % 2 != 0 else "(Pattern B)"), expanded=(w==1)):
+        st.write("---")
+        def_inc = {"S": 5, "B": 5, "O": 5, "D": 10} if new_unit == "LBS" else {"S": 2.5, "B": 2.5, "O": 2.5, "D": 5}
+        col1, col2, col3, col4 = st.columns(4)
+        with col1: s_rm, s_inc = st.text_input("Squat 5RM", "225"), st.text_input("Sq Inc", str(def_inc["S"]))
+        with col2: b_rm, b_inc = st.text_input("Bench 5RM", "185"), st.text_input("Bn Inc", str(def_inc["B"]))
+        with col3: o_rm, o_inc = st.text_input("OHP 5RM", "115"), st.text_input("Oh Inc", str(def_inc["O"]))
+        with col4: d_rm, d_inc = st.text_input("Dead 5RM", "315"), st.text_input("Dl Inc", str(def_inc["D"]))
             
-            # Pattern Logic
-            if w % 2 != 0:
-                mon_p, wed_p, fri_p = "Bench Press", "Overhead Press", "Bench Press"
+        if st.form_submit_button("🏁 Start Cycle", use_container_width=True):
+            if not c_name: st.error("Name your cycle.")
             else:
-                mon_p, wed_p, fri_p = "Overhead Press", "Bench Press", "Overhead Press"
+                st.session_state.cycles.append({
+                    "name": c_name, "date": datetime.now().strftime("%Y-%m-%d"), "weeks": int(c_weeks),
+                    "success_log": {m: [False]*int(c_weeks) for m in ["Squat", "Bench", "OHP", "Deadlift"]},
+                    "weight_log": [float(c_bw)] * int(c_weeks),
+                    "lifts": {
+                        "Squat": {"rm": float(s_rm), "inc": float(s_inc)}, "Bench": {"rm": float(b_rm), "inc": float(b_inc)},
+                        "OHP": {"rm": float(o_rm), "inc": float(o_inc)}, "Deadlift": {"rm": float(d_rm), "inc": float(d_inc)}
+                    }
+                })
+                st.rerun()
+
+# --- DISPLAY ---
+if st.session_state.cycles:
+    for idx, cycle in enumerate(reversed(st.session_state.cycles)):
+        true_idx = len(st.session_state.cycles) - 1 - idx
+        with st.container(border=True):
+            head_col1, head_col2 = st.columns([0.7, 0.3])
+            head_col1.subheader(f"⚡ {cycle['name']}")
             
-            # Calculate weights based on previous successes
-            # (If Friday was crushed, increment applies to all subsequent weeks)
-            def get_current_w(lift_name, week_num):
-                base = data["lifts"][lift_name]["current_5rm"]
-                inc = data["lifts"][lift_name]["inc"]
-                # Count how many times this lift was crushed in weeks strictly BEFORE current week
-                past_successes = sum(1 for wk in range(1, week_num) if data["history"].get(f"w{wk}_{lift_name}", False))
-                return base + (past_successes * inc)
-
-            col_m, col_w, col_f = st.columns(3)
+            del_key = f"confirm_del_{true_idx}"
+            if del_key not in st.session_state: st.session_state[del_key] = False
             
-            # --- MONDAY ---
-            with col_m:
-                st.markdown("### MONDAY (Volume)")
-                sq_v = round_to_plates(get_current_w("Squat", w) * 0.90, smallest_plate)
-                pr_v = round_to_plates(get_current_w(mon_p, w) * 0.90, smallest_plate)
-                dl_v = round_to_plates(get_current_w("Deadlift", w) * 0.90, smallest_plate)
-                st.info(f"**Squat**: 5x5 @ {sq_v} kg\n\n**{mon_p}**: 5x5 @ {pr_v} kg\n\n**Deadlift**: 1x5 @ {dl_v} kg")
+            if not st.session_state[del_key]:
+                if head_col2.button("🗑️ Delete", key=f"btn_{true_idx}", use_container_width=True):
+                    st.session_state[del_key] = True
+                    st.rerun()
+            else:
+                head_col2.error("Sure?")
+                c1, c2 = head_col2.columns(2)
+                if c1.button("Yes", key=f"yes_{true_idx}", use_container_width=True):
+                    st.session_state.cycles.pop(true_idx)
+                    del st.session_state[del_key]
+                    st.rerun()
+                if c2.button("No", key=f"no_{true_idx}", use_container_width=True):
+                    st.session_state[del_key] = False
+                    st.rerun()
 
-            # --- WEDNESDAY ---
-            with col_w:
-                st.markdown("### WEDNESDAY (Light)")
-                sq_l = round_to_plates(get_current_w("Squat", w) * 0.70, smallest_plate)
-                pr_l = round_to_plates(get_current_w(wed_p, w) * 0.70, smallest_plate)
-                st.success(f"**Squat**: 2x5 @ {sq_l} kg\n\n**{wed_p}**: 3x5 @ {pr_l} kg\n\n**Chin-ups**: 3x Failure\n\n**Hypers**: 5x10")
-
-            # --- FRIDAY ---
-            with col_f:
-                st.markdown("### FRIDAY (Intensity)")
-                st.markdown('<div class="crush-box"><b>Did You Crush It?</b>', unsafe_allow_html=True)
-                
-                friday_lifts = ["Squat", fri_p, "Deadlift"]
-                for lift in friday_lifts:
-                    int_w = round_to_plates(get_current_w(lift, w), smallest_plate)
-                    key = f"w{w}_{lift}"
-                    checked = data["history"].get(key, False)
-                    
-                    if st.checkbox(f"{lift}: 1x5 @ {int_w} kg", value=checked, key=f"cb_{key}"):
-                        if not checked:
-                            st.session_state.data["history"][key] = True
-                            sync_to_device()
+            tab1, tab2 = st.tabs(["📅 Training Log", "📈 Progress Analysis"])
+            with tab1:
+                w_tabs = st.tabs([f"W{i+1}" for i in range(cycle['weeks'])])
+                for w_i in range(cycle['weeks']):
+                    counts = {mv: sum(1 for s in cycle['success_log'][mv][:w_i] if s == True) for mv in ["Squat", "Bench", "OHP", "Deadlift"]}
+                    with w_tabs[w_i]:
+                        st.write("**Current BW**")
+                        new_bw = st.number_input(f"Weight", value=cycle['weight_log'][w_i], key=f"bw_{true_idx}_{w_i}", step=0.1, label_visibility="collapsed")
+                        if new_bw != cycle['weight_log'][w_i]:
+                            cycle['weight_log'][w_i] = new_bw
                             st.rerun()
-                    elif checked: # Handle unchecking
-                        st.session_state.data["history"][key] = False
-                        sync_to_device()
-                        st.rerun()
-                st.markdown('</div>', unsafe_allow_html=True)
+                        
+                        st.divider()
+                        is_a = (w_i + 1) % 2 != 0
+                        m_pres, w_pres = ("Bench", "OHP") if is_a else ("OHP", "Bench")
+                        cols = st.columns(3)
+                        days = [
+                            ("Monday", 0.90, "5x5", ["Squat", m_pres, "Deadlift"]),
+                            ("Wednesday", 0.70, "2x5", ["Squat", w_pres]),
+                            ("Friday", 1.00, "1x5", ["Squat", m_pres, "Deadlift"])
+                        ]
 
-st.markdown('<div class="signature">Assistant Exercises by Aydın Ayhan</div>', unsafe_allow_html=True)
+                        for d_idx, (day_title, pct, rep_scheme, moves) in enumerate(days):
+                            with cols[d_idx]:
+                                st.markdown(f"#### {day_title}")
+                                for mv in moves:
+                                    base_5rm = cycle['lifts'][mv]['rm'] + (cycle['lifts'][mv]['inc'] * counts[mv])
+                                    work_weight = round_to_plates(base_5rm * pct, plate)
+                                    # BURASI KIRMIZI KUTU OLACAK KISIM:
+                                    st.info(f"**{mv}**: {rep_scheme} @ **{format_weight(work_weight)} {new_unit}**")
+                                    with st.expander("🔥 Warmup"):
+                                        for line in get_warmup_sets(work_weight, new_unit, plate):
+                                            st.markdown(f'<p class="warmup-text">{line}</p>', unsafe_allow_html=True)
+                                
+                                if "Wednesday" in day_title:
+                                    st.divider()
+                                    st.info("Pullups: 3 Sets to Failure")
+                                    st.info("Hyperextensions: 5 Sets x 10")
+
+                                if "Friday" in day_title:
+                                    st.divider()
+                                    st.write("**Friday Check? 🏆**")
+                                    for mv in moves:
+                                        val = cycle['success_log'][mv][w_i]
+                                        if st.checkbox(f"Crushed {mv}?", value=val, key=f"s_{true_idx}_{w_i}_{mv}") != val:
+                                            cycle['success_log'][mv][w_i] = not val
+                                            st.rerun()
+
+            with tab2:
+                fig = make_subplots(specs=[[{"secondary_y": True}]])
+                weeks_axis = [f"W{i+1}" for i in range(cycle['weeks'])]
+                for lift, data in cycle['lifts'].items():
+                    y, s_c = [], 0
+                    for i in range(cycle['weeks']):
+                        current_w = round_to_plates(data['rm'] + (data['inc'] * s_c), plate)
+                        y.append(current_w)
+                        if cycle['success_log'][lift][i]: s_c += 1
+                    fig.add_trace(go.Scatter(x=weeks_axis, y=y, name=f"{lift}", mode='lines+markers'), secondary_y=False)
+                
+                fig.add_trace(go.Scatter(x=weeks_axis, y=cycle['weight_log'], name="Bodyweight", line=dict(color='gray', dash='dot'), mode='lines+markers'), secondary_y=True)
+                fig.update_layout(template="plotly_dark" if theme_choice == "Deep Dark" else "plotly_white", height=600)
+                st.plotly_chart(fig, use_container_width=True)
+
+    st.markdown('<div class="signature-footer">By Aydin Ayhan</div>', unsafe_allow_html=True)
+else:
+    st.info("No active cycles.")
