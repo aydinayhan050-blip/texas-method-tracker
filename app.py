@@ -73,18 +73,32 @@ with st.sidebar:
 st.markdown(f"<style>.stApp {{ background-color: {bg_color}; color: {text_color}; }}</style>", unsafe_allow_html=True)
 st.title("Texas Method Training Tracker")
 
+# --- DYNAMIC DEFAULTS BASED ON UNIT ---
+if new_unit == "LBS":
+    def_inc_s, def_inc_b, def_inc_o, def_inc_d = "5", "5", "5", "10"
+else:
+    def_inc_s, def_inc_b, def_inc_o, def_inc_d = "2.5", "2.5", "2.5", "5"
+
 # --- CREATE NEW CYCLE ---
 with st.expander("👊 Create New Cycle", expanded=len(st.session_state.cycles) == 0):
     with st.form("new_cycle_form"):
-        c_name = st.text_input("📝 Cycle Name", placeholder="e.g. Summer Shred")
+        c_name = st.text_input("📝 Cycle Name", placeholder="e.g. Road to 500 SBD")
         c_weeks = st.slider("⏳ Duration (Weeks)", 1, 16, 8)
-        c_bw = st.number_input(f"⚖️ Initial BW ({new_unit})", value=80.0)
+        c_bw = st.number_input(f"⚖️ Initial BW ({new_unit})", value=180.0 if new_unit == "LBS" else 80.0)
         st.write("---")
         col1, col2, col3, col4 = st.columns(4)
-        with col1: s_rm, s_inc = st.text_input(f"🏋️ Squat 5RM ({new_unit})", "100"), st.text_input(f"➕ Squat Inc ({new_unit})", "2.5")
-        with col2: b_rm, b_inc = st.text_input(f"💪 Bench 5RM ({new_unit})", "80"), st.text_input(f"➕ Bench Inc ({new_unit})", "2.5")
-        with col3: o_rm, o_inc = st.text_input(f"🥥 OHP 5RM ({new_unit})", "50"), st.text_input(f"➕ OHP Inc ({new_unit})", "2.5")
-        with col4: d_rm, d_inc = st.text_input(f"🔥 Deadlift 5RM ({new_unit})", "140"), st.text_input(f"➕ Deadlift Inc ({new_unit})", "5")
+        with col1: 
+            s_rm = st.text_input(f"🏋️ Squat 5RM ({new_unit})", "225" if new_unit == "LBS" else "100")
+            s_inc = st.text_input(f"➕ Squat Inc ({new_unit})", def_inc_s)
+        with col2: 
+            b_rm = st.text_input(f"💪 Bench 5RM ({new_unit})", "185" if new_unit == "LBS" else "80")
+            b_inc = st.text_input(f"➕ Bench Inc ({new_unit})", def_inc_b)
+        with col3: 
+            o_rm = st.text_input(f"🥥 OHP 5RM ({new_unit})", "115" if new_unit == "LBS" else "50")
+            o_inc = st.text_input(f"➕ OHP Inc ({new_unit})", def_inc_o)
+        with col4: 
+            d_rm = st.text_input(f"🔥 Deadlift 5RM ({new_unit})", "315" if new_unit == "LBS" else "140")
+            d_inc = st.text_input(f"➕ Deadlift Inc ({new_unit})", def_inc_d)
         
         if st.form_submit_button("🚀 Start Cycle"):
             if not c_name.strip():
@@ -108,7 +122,6 @@ with st.expander("👊 Create New Cycle", expanded=len(st.session_state.cycles) 
 if st.session_state.cycles:
     for idx, cycle in enumerate(reversed(st.session_state.cycles)):
         true_idx = len(st.session_state.cycles) - 1 - idx
-        
         with st.container(border=True):
             head1, head2 = st.columns([0.85, 0.15])
             s_date = cycle.get("start_date", "N/A")
@@ -138,11 +151,9 @@ if st.session_state.cycles:
                 week_titles.append(f"W{w_i+1} {'✅' if is_comp else '🏋️'}")
 
             w_tabs = st.tabs(week_titles)
-            
             for w_i in range(cycle['weeks']):
                 with w_tabs[w_i]:
                     counts = {mv: sum(1 for s in cycle['success_log'][mv][:w_i] if s == True) for mv in ["Squat", "Bench", "OHP", "Deadlift"]}
-                    
                     if cycle['failed_week_log'][w_i]: st.warning("⚠️ This week was marked as Failed.")
 
                     st.write("⚖️ **Bodyweight**")
@@ -154,15 +165,10 @@ if st.session_state.cycles:
                     is_a = (w_i + 1) % 2 != 0
                     m_pres, w_pres = ("Bench", "OHP") if is_a else ("OHP", "Bench")
                     cols = st.columns(3)
-                    
-                    # Lift names with emojis for the log display
                     lift_emojis = {"Squat": "🏋️ Squat", "Bench": "💪 Bench", "OHP": "🥥 OHP", "Deadlift": "🔥 Deadlift"}
-
-                    days = [
-                        ("📅 Monday (Volume)", 0.90, "5x5", ["Squat", m_pres, "Deadlift"]),
-                        ("📅 Wednesday (Light)", 0.70, "2x5", ["Squat", w_pres]),
-                        ("📅 Friday (Intensity)", 1.00, "1x5", ["Squat", m_pres, "Deadlift"])
-                    ]
+                    days = [("📅 Monday (Volume)", 0.90, "5x5", ["Squat", m_pres, "Deadlift"]),
+                            ("📅 Wednesday (Light)", 0.70, "2x5", ["Squat", w_pres]),
+                            ("📅 Friday (Intensity)", 1.00, "1x5", ["Squat", m_pres, "Deadlift"])]
 
                     for d_idx, (day_title, pct, rep_scheme, moves) in enumerate(days):
                         with cols[d_idx]:
