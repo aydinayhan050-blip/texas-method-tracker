@@ -30,10 +30,6 @@ def load_data():
     return [], "KG"
 
 # --- CORE MATH ---
-def calculate_1rm(weight, reps):
-    if reps == 1: return weight
-    return weight / (1.0278 - (0.0278 * reps))
-
 def format_weight(weight):
     val = round(float(weight), 2)
     return f"{int(val)}" if val % 1 == 0 else f"{val}"
@@ -50,49 +46,47 @@ def convert_weight(val, to_unit):
 # --- UI CONFIG ---
 st.set_page_config(page_title="Texas Method Tracker", layout="wide")
 
-# THE NUCLEAR ANTI-DIMMING CSS
+# THE ULTIMATE ANTI-DIMMING CSS (STRONGEST VERSION)
 st.markdown("""
     <style>
-    /* 1. Disable the status widget spinner area */
+    /* 1. Stop the status spinner and the dimming overlay entirely */
     div[data-testid="stStatusWidget"] { display: none !important; }
     
-    /* 2. Force full opacity on the entire app container even when stale/running */
+    /* 2. Target the overlay that Streamlit puts over the app during execution */
+    .stApp > header { background-color: transparent !important; }
+    
+    /* 3. The actual 'dimming' is often a semi-transparent layer or a filter */
     div[data-testid="stAppViewBlockContainer"] {
         opacity: 1 !important;
         filter: none !important;
     }
-    
-    /* 3. Target the specific 'stale' state that causes the dimming */
+
+    /* 4. Kill the 'stale' visual effect (the graying out) */
     div.stBlock[data-stale="true"] {
         opacity: 1 !important;
         filter: none !important;
         pointer-events: auto !important;
     }
+    
+    /* Extra: Make sure the content doesn't shift or flicker */
+    .element-container { opacity: 1 !important; }
 
-    /* 4. Ensure checkboxes and other widgets don't dim themselves */
-    .stCheckbox label, .stButton button, .stMarkdown {
-        opacity: 1 !important;
-    }
-
-    /* 5. Giant Timer Styling */
+    /* Giant Timer Styling */
     .big-timer {
-        font-size: 90px !important;
+        font-size: 100px !important;
         font-weight: 900;
         text-align: center;
         color: #FF4B4B;
         margin: 0px;
-        line-height: 1.1;
-        font-family: 'Courier New', Courier, monospace;
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        line-height: 1;
+        font-family: 'monospace';
     }
     .ready-text {
-        font-size: 65px !important;
+        font-size: 70px !important;
         color: #28a745;
         font-weight: 900;
         text-align: center;
-        animation: blinker 1s linear infinite;
     }
-    @keyframes blinker { 50% { opacity: 0; } }
     </style>
 """, unsafe_allow_html=True)
 
@@ -129,10 +123,9 @@ with st.sidebar:
 st.markdown(f"<style>.stApp {{ background-color: {bg_color}; }}</style>", unsafe_allow_html=True)
 st.title("Texas Method Training Tracker")
 
-# --- NEW CYCLE FORM ---
+# --- CREATE CYCLE ---
 u = st.session_state.current_unit
-if u == "LBS": def_inc = ["5", "5", "5", "10"]
-else: def_inc = ["2.5", "2.5", "2.5", "5"]
+def_inc = ["5", "5", "5", "10"] if u == "LBS" else ["2.5", "2.5", "2.5", "5"]
 
 with st.expander("👊 Create New Cycle", expanded=len(st.session_state.cycles) == 0):
     with st.form("new_cycle_form"):
@@ -141,10 +134,10 @@ with st.expander("👊 Create New Cycle", expanded=len(st.session_state.cycles) 
         c_bw = st.number_input(f"⚖️ Initial BW ({u})", value=80.0 if u == "KG" else 180.0)
         st.write("---")
         col1, col2, col3, col4 = st.columns(4)
-        with col1: s_rm, s_inc = st.text_input(f"🏋️ Squat 5RM ({u})", "100"), st.text_input(f"➕ Squat Inc", def_inc[0])
-        with col2: b_rm, b_inc = st.text_input(f"💪 Bench 5RM ({u})", "80"), st.text_input(f"➕ Bench Inc", def_inc[1])
-        with col3: o_rm, o_inc = st.text_input(f"🥥 OHP 5RM ({u})", "50"), st.text_input(f"➕ OHP Inc", def_inc[2])
-        with col4: d_rm, d_inc = st.text_input(f"🔥 Deadlift 5RM ({u})", "140"), st.text_input(f"➕ Deadlift Inc", def_inc[3])
+        with col1: s_rm, s_inc = st.text_input(f"🏋️ Squat 5RM", "100"), st.text_input(f"➕ Squat Inc", def_inc[0])
+        with col2: b_rm, b_inc = st.text_input(f"💪 Bench 5RM", "80"), st.text_input(f"➕ Bench Inc", def_inc[1])
+        with col3: o_rm, o_inc = st.text_input(f"🥥 OHP 5RM", "50"), st.text_input(f"➕ OHP Inc", def_inc[2])
+        with col4: d_rm, d_inc = st.text_input(f"🔥 Deadlift 5RM", "140"), st.text_input(f"➕ Deadlift Inc", def_inc[3])
         
         if st.form_submit_button("🚀 Start Cycle"):
             if c_name.strip():
@@ -158,7 +151,7 @@ with st.expander("👊 Create New Cycle", expanded=len(st.session_state.cycles) 
                 })
                 save_data(); st.rerun()
 
-# --- DISPLAY CYCLES ---
+# --- DISPLAY ---
 if st.session_state.cycles:
     for idx, cycle in enumerate(reversed(st.session_state.cycles)):
         true_idx = len(st.session_state.cycles) - 1 - idx
@@ -181,7 +174,7 @@ if st.session_state.cycles:
                 tabs = st.tabs([f"Week {i+1} {'✅' if cycle['week_completed_log'][i] else ''}" for i in range(cycle['weeks'])])
                 for w_i in range(cycle['weeks']):
                     with tabs[w_i]:
-                        # ENHANCED TIMER SECTION
+                        # TIMER
                         t_col1, t_col2 = st.columns([0.3, 0.7])
                         with t_col1: rest_choice = st.slider("⏱️ Rest (min)", 1, 10, 3, key=f"rs_{true_idx}_{w_i}")
                         with t_col2:
@@ -221,21 +214,21 @@ if st.session_state.cycles:
                                             for s_i in range(set_count):
                                                 with set_grid[s_i]:
                                                     if st.checkbox(f"S{s_i+1}", key=f"ck_{true_idx}_{w_i}_{d_name}_{mv}_{s_i}"):
-                                                        total_sec = rest_choice * 60
-                                                        for sec in range(total_sec, -1, -1):
+                                                        ts = rest_choice * 60
+                                                        for sec in range(ts, -1, -1):
                                                             mins, secs = divmod(sec, 60)
                                                             timer_text.markdown(f'<p class="big-timer">{mins:02d}:{secs:02d}</p>', unsafe_allow_html=True)
-                                                            timer_bar.progress(sec / total_sec)
+                                                            timer_bar.progress(sec / ts)
                                                             time.sleep(1)
                                                         timer_text.markdown('<p class="ready-text">READY! 🔥</p>', unsafe_allow_html=True)
                                                         timer_bar.empty()
                                                         st.balloons()
                                             with st.expander("Warm-up"):
-                                                bar_w = 45 if u == "LBS" else 20
-                                                warmups = [(f"Bar x 2x5", bar_w), (f"40% x 5", calc_w * 0.4), (f"60% x 3", calc_w * 0.6), (f"80% x 2", calc_w * 0.8), (f"90% x 1", calc_w * 0.9)]
-                                                for label, val in warmups:
-                                                    final_v = max(bar_w, round_to_plates(val, smallest_plate))
-                                                    st.write(f"• {label}: **{format_weight(final_v)}**")
+                                                bw_ = 45 if u == "LBS" else 20
+                                                w_ps = [(f"Bar x 2x5", bw_), (f"40% x 5", calc_w*0.4), (f"60% x 3", calc_w*0.6), (f"80% x 2", calc_w*0.8), (f"90% x 1", calc_w*0.9)]
+                                                for lbl, val in w_ps:
+                                                    fv = max(bw_, round_to_plates(val, smallest_plate))
+                                                    st.write(f"• {lbl}: **{format_weight(fv)}**")
                                 
                                 if "Wednesday" in d_name:
                                     st.info("🦾 **Pullups**: 3 x Max | 🏹 **Back Extensions**: 5 x 10")
@@ -247,7 +240,6 @@ if st.session_state.cycles:
 
                                 if "Friday" in d_name:
                                     st.subheader("🏆 Intensity Crush Check")
-                                    st.caption("⚠️ IMPORTANT: If you fail, leave this unchecked to keep weights same next week.")
                                     check_cols = st.columns(len(moves))
                                     for m_idx, mv in enumerate(moves):
                                         with check_cols[m_idx]:
