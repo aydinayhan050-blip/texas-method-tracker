@@ -76,15 +76,14 @@ st.title("Texas Method Training Tracker")
 # --- CREATE NEW CYCLE ---
 with st.expander("👊 Create New Cycle", expanded=len(st.session_state.cycles) == 0):
     with st.form("new_cycle_form"):
-        c_name = st.text_input("📝 Cycle Name", placeholder="e.g. Road to 500 SBD")
+        c_name = st.text_input("📝 Cycle Name", placeholder="e.g. Summer Shred")
         c_weeks = st.slider("⏳ Duration (Weeks)", 1, 16, 8)
         c_bw = st.number_input(f"⚖️ Initial BW ({new_unit})", value=80.0)
         st.write("---")
         col1, col2, col3, col4 = st.columns(4)
-        # Unit suffix added to form fields
         with col1: s_rm, s_inc = st.text_input(f"🏋️ Squat 5RM ({new_unit})", "100"), st.text_input(f"➕ Squat Inc ({new_unit})", "2.5")
         with col2: b_rm, b_inc = st.text_input(f"💪 Bench 5RM ({new_unit})", "80"), st.text_input(f"➕ Bench Inc ({new_unit})", "2.5")
-        with col3: o_rm, o_inc = st.text_input(f" Overhead 5RM ({new_unit})", "50"), st.text_input(f"➕ OHP Inc ({new_unit})", "2.5")
+        with col3: o_rm, o_inc = st.text_input(f"🥥 OHP 5RM ({new_unit})", "50"), st.text_input(f"➕ OHP Inc ({new_unit})", "2.5")
         with col4: d_rm, d_inc = st.text_input(f"🔥 Deadlift 5RM ({new_unit})", "140"), st.text_input(f"➕ Deadlift Inc ({new_unit})", "5")
         
         if st.form_submit_button("🚀 Start Cycle"):
@@ -92,7 +91,9 @@ with st.expander("👊 Create New Cycle", expanded=len(st.session_state.cycles) 
                 st.error("Please name your cycle first!")
             else:
                 st.session_state.cycles.append({
-                    "name": c_name, "weeks": int(c_weeks),
+                    "name": c_name, 
+                    "start_date": datetime.now().strftime("%Y-%m-%d"),
+                    "weeks": int(c_weeks),
                     "success_log": {m: [False]*int(c_weeks) for m in ["Squat", "Bench", "OHP", "Deadlift"]},
                     "failed_week_log": [False] * int(c_weeks),
                     "weight_log": [float(c_bw)] * int(c_weeks),
@@ -110,9 +111,9 @@ if st.session_state.cycles:
         
         with st.container(border=True):
             head1, head2 = st.columns([0.85, 0.15])
-            head1.subheader(f"⚡ Cycle: {cycle['name']}")
+            s_date = cycle.get("start_date", "N/A")
+            head1.subheader(f"⚡ {cycle['name']} (Started: {s_date})")
             
-            # --- DELETE WITH CONFIRMATION ---
             confirm_key = f"del_confirm_{true_idx}"
             if confirm_key not in st.session_state: st.session_state[confirm_key] = False
             
@@ -136,14 +137,13 @@ if st.session_state.cycles:
                 is_comp = any(cycle['success_log'][mv][w_i] for mv in ["Squat", "Bench", "OHP", "Deadlift"]) or cycle['failed_week_log'][w_i]
                 week_titles.append(f"W{w_i+1} {'✅' if is_comp else '🏋️'}")
 
-            # Using query params for deeper stability
             w_tabs = st.tabs(week_titles)
             
             for w_i in range(cycle['weeks']):
                 with w_tabs[w_i]:
                     counts = {mv: sum(1 for s in cycle['success_log'][mv][:w_i] if s == True) for mv in ["Squat", "Bench", "OHP", "Deadlift"]}
                     
-                    if cycle['failed_week_log'][w_i]: st.warning("⚠️ This week was marked as Failed. Weights haven't increased.")
+                    if cycle['failed_week_log'][w_i]: st.warning("⚠️ This week was marked as Failed.")
 
                     st.write("⚖️ **Bodyweight**")
                     new_bw = st.number_input("BW", value=cycle['weight_log'][w_i], key=f"bw_{true_idx}_{w_i}", label_visibility="collapsed")
@@ -155,7 +155,9 @@ if st.session_state.cycles:
                     m_pres, w_pres = ("Bench", "OHP") if is_a else ("OHP", "Bench")
                     cols = st.columns(3)
                     
-                    # Training Data
+                    # Lift names with emojis for the log display
+                    lift_emojis = {"Squat": "🏋️ Squat", "Bench": "💪 Bench", "OHP": "🥥 OHP", "Deadlift": "🔥 Deadlift"}
+
                     days = [
                         ("📅 Monday (Volume)", 0.90, "5x5", ["Squat", m_pres, "Deadlift"]),
                         ("📅 Wednesday (Light)", 0.70, "2x5", ["Squat", w_pres]),
@@ -168,14 +170,11 @@ if st.session_state.cycles:
                             for mv in moves:
                                 base_5rm = cycle['lifts'][mv]['rm'] + (cycle['lifts'][mv]['inc'] * counts[mv])
                                 work_weight = round_to_plates(base_5rm * pct, plate)
-                                st.info(f"**{mv}**: {rep_scheme} @ **{format_weight(work_weight)} {new_unit}**")
+                                st.info(f"**{lift_emojis.get(mv, mv)}**: {rep_scheme} @ **{format_weight(work_weight)} {new_unit}**")
                             
-                            # ADD ASSISTANCE WORK FOR WEDNESDAY
                             if "Wednesday" in day_title:
-                                st.markdown("---")
-                                st.markdown("**➕ Assistance Work**")
-                                st.success("🦾 Pullups: 3 sets to failure")
-                                st.success("🏹 Back Extensions: 5 sets x 10 reps")
+                                st.success("🦾 **Pullups**: 3 sets x Max")
+                                st.success("🏹 **Back Extensions**: 5 sets x 10 reps")
 
                             if "Friday" in day_title:
                                 st.divider()
