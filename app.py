@@ -3,6 +3,7 @@ import plotly.graph_objects as go
 from datetime import datetime
 import json
 import os
+import time
 
 # --- STORAGE FUNCTIONS ---
 DB_FILE = "texas_method_data.json"
@@ -23,6 +24,15 @@ def load_data():
                     cycle["week_completed_log"] = [False] * cycle["weeks"]
             return cycles, unit
     return [], "KG"
+
+# --- TIMER FUNCTION ---
+def run_timer(seconds, key_prefix):
+    placeholder = st.empty()
+    for i in range(seconds, 0, -1):
+        placeholder.metric("⏱️ Rest Time", f"{i//60:02d}:{i%60:02d}")
+        time.sleep(1)
+    placeholder.error("🔥 SET BAŞLASIN! HAYDİ KNK!")
+    st.balloons()
 
 # --- CORE MATH ---
 def calculate_1rm(weight, reps):
@@ -168,7 +178,6 @@ if st.session_state.cycles:
                         is_a = (w_i + 1) % 2 != 0
                         m_p, w_p = ("Bench", "OHP") if is_a else ("OHP", "Bench")
                         
-                        # GÜNLER ARTIK TEK SÜTUN (ALT ALTA EXPANDER OLMASI İÇİN)
                         days = [("📅 Monday (Volume)", 0.90, ["Squat", m_p, "Deadlift"]),
                                 ("📅 Wednesday (Light)", 0.70, ["Squat", w_p]),
                                 ("📅 Friday (Intensity)", 1.00, ["Squat", m_p, "Deadlift"])]
@@ -176,9 +185,10 @@ if st.session_state.cycles:
                         lift_emojis = {"Squat": "🏋️", "Bench": "💪", "OHP": "🥥", "Deadlift": "⛓️"}
 
                         for d_idx, (title, pct, moves) in enumerate(days):
-                            # Her gün ana bir expander içine alındı
                             with st.expander(f"### {title}", expanded=False):
-                                # Hareketleri yan yana 3 sütun yapalım ki içinde çok uzamasın
+                                # Rest time logic by day
+                                rest_time = 120 if "Monday" in title else (60 if "Wednesday" in title else 300)
+                                
                                 lift_cols = st.columns(len(moves))
                                 for m_idx, mv in enumerate(moves):
                                     with lift_cols[m_idx]:
@@ -188,16 +198,29 @@ if st.session_state.cycles:
                                         
                                         p_1rm = custom_round_percent((calc_w / current_1rm) * 100)
                                         p_5rm = custom_round_percent((calc_w / current_5rm) * 100)
-                                        reps_str = "5x5" if "Monday" in title else ("2x5" if "Wednesday" in title else "1x5")
+                                        
+                                        # Set counts based on the day
+                                        set_count = 5 if "Monday" in title else (2 if "Wednesday" in title else 1)
+                                        reps_label = "5"
                                         
                                         with st.container(border=True):
                                             st.markdown(f"**{lift_emojis.get(mv, '')} {mv}**")
-                                            st.markdown(f"#### {reps_str} @ {format_weight(calc_w)} {u}")
-                                            st.caption(f"*(%{p_1rm} 1RM / %{p_5rm} 5RM)*")
+                                            st.markdown(f"#### {set_count}x{reps_label} @ {format_weight(calc_w)} {u}")
                                             
+                                            # --- SET TRACKER & AUTO TIMER ---
+                                            st.write("Sets:")
+                                            set_cols = st.columns(set_count)
+                                            for s_i in range(set_count):
+                                                with set_cols[s_i]:
+                                                    s_key = f"set_{true_idx}_{w_i}_{title}_{mv}_{s_i}"
+                                                    if st.checkbox(f"{s_i+1}", key=s_key):
+                                                        # If it's not the last set, run timer
+                                                        if s_i < set_count - 1:
+                                                            run_timer(rest_time, s_key)
+
                                             with st.expander("🔥 Warm-up"):
                                                 bar_w = 45 if u == "LBS" else 20
-                                                warmups = [(f"Bar x 2 x 5", bar_w), (f"40% x 1 x 5", calc_w * 0.40), (f"60% x 1 x 3", calc_w * 0.60), (f"80% x 1 x 2", calc_w * 0.80), (f"90% x 1 x 1", calc_w * 0.90)]
+                                                warmups = [(f"Bar x 2x5", bar_w), (f"40% x 5", calc_w * 0.40), (f"60% x 3", calc_w * 0.60), (f"80% x 2", calc_w * 0.80), (f"90% x 1", calc_w * 0.90)]
                                                 for label, val in warmups:
                                                     final_v = max(bar_w, round_to_plates(val, smallest_plate))
                                                     st.write(f"• {label}: **{format_weight(final_v)}**")
