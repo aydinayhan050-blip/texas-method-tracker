@@ -96,8 +96,7 @@ with st.sidebar:
         if os.path.exists(DB_FILE): os.remove(DB_FILE)
         st.rerun()
     
-    # Aydın Ayhan imzası
-    st.markdown("<div style='text-align: center; opacity: 0.5; font-size: 0.8em;'>by aydin ayhan</div>", unsafe_allow_html=True)
+    st.markdown("<div style='text-align: center; opacity: 0.5; font-size: 0.8em;'>by Aydin Ayhan</div>", unsafe_allow_html=True)
 
 st.markdown(f"<style>.stApp {{ background-color: {bg_color}; }}</style>", unsafe_allow_html=True)
 st.title("Texas Method Training Tracker")
@@ -121,7 +120,7 @@ with st.expander("👊 Create New Cycle", expanded=len(st.session_state.cycles) 
         submit = st.form_submit_button("🚀 Start Cycle")
         if submit:
             if not c_name.strip():
-                st.error("⚠️ Lütfen cycle için bir isim gir!")
+                st.error("⚠️ Please enter a name for the cycle!")
             else:
                 st.session_state.cycles.append({
                     "name": c_name, "start_date": datetime.now().strftime("%Y-%m-%d"), "weeks": int(c_weeks),
@@ -150,10 +149,9 @@ if st.session_state.cycles:
             if h3.button("🏋️ Weights", key=f"bw_{t_idx}", use_container_width=True):
                 st.session_state[w_key] = not st.session_state[w_key]; st.session_state[p_key] = False; st.rerun()
             
-            # Are you sure? özelliği için popover kullanımı
             with h4.popover("🗑️ Delete", use_container_width=True):
-                st.write("Emin misin?")
-                if st.button("Evet, sil!", key=f"conf_del_{t_idx}", type="primary", use_container_width=True):
+                st.write("Are you sure?")
+                if st.button("Yes, delete!", key=f"conf_del_{t_idx}", type="primary", use_container_width=True):
                     st.session_state.cycles.pop(t_idx); save_data(); st.rerun()
 
             if st.session_state[w_key]:
@@ -217,7 +215,8 @@ if st.session_state.cycles:
                                 if "Friday" not in d_name:
                                     if st.button(f"Mark {d_name} Finished", key=f"btn_v2_{d_key}", use_container_width=True):
                                         cycle['day_completed_log'][d_key] = True
-                                        save_data(); st.rerun()
+                                        save_data()
+                                        st.rerun()
                                 else:
                                     st.subheader("🏆 Friday Checklist")
                                     st.caption("ℹ️ *Check 'Crushed' if you hit the reps. This increases weight for next week.*")
@@ -231,7 +230,8 @@ if st.session_state.cycles:
                                     if st.button("🏁 Finish & Log Week", key=f"final_btn_{t_idx}_{w_i}", use_container_width=True, type="primary"):
                                         cycle['day_completed_log'][d_key] = True
                                         cycle['week_completed_log'][w_i] = True
-                                        save_data(); st.rerun()
+                                        save_data()
+                                        st.rerun()
 
             if st.session_state[p_key]:
                 st.divider()
