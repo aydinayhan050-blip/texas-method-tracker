@@ -200,7 +200,6 @@ if st.session_state.cycles:
                                 lift_cols = st.columns(len(moves))
                                 for m_idx, mv in enumerate(moves):
                                     with lift_cols[m_idx]:
-                                        # Accessory movements logic
                                         is_accessory = mv in ["Chin-ups", "Back Extensions"]
                                         
                                         if not is_accessory:
@@ -240,10 +239,9 @@ if st.session_state.cycles:
                                                         fv = max(bar_w, round_to_plates(val, smallest_plate))
                                                         st.write(f"• {lbl}: **{format_weight(fv)}**")
                                             else:
-                                                # Accessory specific UI (no timer, no checkbox system)
                                                 if mv == "Chin-ups":
                                                     st.markdown("#### 3 Sets to Failure")
-                                                    st.write("Bodyweight or Weighted")
+                                                    st.write("Bodyweight focus")
                                                 else:
                                                     st.markdown("#### 3x10-15 Reps")
                                                     st.write("Focus on contraction")
