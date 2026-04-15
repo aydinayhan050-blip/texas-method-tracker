@@ -290,7 +290,7 @@ if st.session_state.cycles:
                                         st.subheader("⚡ Power Clean Checklist")
                                         st.caption("ℹ️ **How it works:** Check this if you successfully completed all sets of Power Clean today. Successful completion will increase the weight by your set increment next week.")
                                         pc_key = f"pc_success_{t_idx}_{w_i}"
-                                        cycle['success_log']["Power Clean"][w_i] = st.checkbox("⚡ Crushed Power Clean (Mon)", value=cycle['success_log']["Power Clean"][w_i], key=pc_key)
+                                        cycle['success_log']["Power Clean"][w_i] = st.checkbox("⚡ Crushed Power Clean", value=cycle['success_log']["Power Clean"][w_i], key=pc_key)
                                         st.write("---")
                                     
                                     if not is_done and st.button(f"Mark {d_name} Finished", key=f"btn_v2_{d_key}", use_container_width=True):
