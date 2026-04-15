@@ -166,7 +166,6 @@ if st.session_state.cycles:
                         cycle['weight_log'][w_i] = st.number_input(f"Bodyweight (BW - {u})", value=cycle['weight_log'][w_i], key=f"bw_in_{t_idx}_{w_i}")
                         st.divider()
 
-                        # CALC LOGIC: Increase weight ONLY if successful in PREVIOUS weeks
                         counts = {m: sum(1 for prev in range(w_i) if cycle['success_log'][m][prev]) for m in ["Squat", "Bench", "OHP", "Deadlift"]}
                         
                         is_a = (w_i + 1) % 2 != 0
@@ -185,13 +184,14 @@ if st.session_state.cycles:
                                 lift_cols = st.columns(len(moves))
                                 for m_idx, mv in enumerate(moves):
                                     with lift_cols[m_idx]:
-                                        # Base Weight + (Increments * Successful previous weeks)
                                         c_rm = cycle['lifts'][mv]['rm'] + (cycle['lifts'][mv]['inc'] * counts[mv])
                                         calc_w = round_to_plates(c_rm * pct, smallest_plate)
                                         set_count = 5 if "Monday" in d_name else (2 if "Wednesday" in d_name else 1)
+                                        
                                         with st.container(border=True):
                                             st.markdown(f"**{lift_emojis.get(mv, '')} {mv}**")
-                                            st.markdown(f"#### {set_count}x5 @ {format_weight(calc_w)} {u}")
+                                            # Burada ağırlığın yanına yüzde bilgisini ekledim
+                                            st.markdown(f"#### {set_count}x5 @ {format_weight(calc_w)} {u} ({int(pct*100)}%)")
                                             for s_i in range(set_count):
                                                 if st.checkbox(f"S{s_i+1}", key=f"ck_{t_idx}_{w_i}_{d_name}_{mv}_{s_i}"):
                                                     total = rest_choice * 60
@@ -225,7 +225,6 @@ if st.session_state.cycles:
                                     cc = st.columns(len(moves))
                                     for mi, mv in enumerate(moves):
                                         with cc[mi]:
-                                            # Marking success here directly impacts next week's 'counts'
                                             cycle['success_log'][mv][w_i] = st.checkbox(f"Crushed {mv}", value=cycle['success_log'][mv][w_i], key=f"f_{t_idx}_{w_i}_{mv}")
                                     
                                     if st.button("✅ Log Entire Week", key=f"fw_{t_idx}_{w_i}", use_container_width=True, type="primary"):
@@ -241,7 +240,6 @@ if st.session_state.cycles:
                     for lift, color in zip(["Squat", "Bench", "OHP", "Deadlift"], ["#FF4B4B", "#1C83E1", "#FFFFFF", "#FFC300"]):
                         y_vals = []
                         for w in range(cycle['weeks']):
-                            # Progress graph also uses the success log
                             c = sum(1 for prev in range(w) if cycle['success_log'].get(lift, [False]*20)[prev])
                             y_vals.append(cycle['lifts'].get(lift, {'rm':0})['rm'] + (cycle['lifts'].get(lift, {'inc':0})['inc'] * c))
                         fig_w.add_trace(go.Scatter(x=weeks_range, y=y_vals, name=lift, line=dict(color=color, width=4), mode='lines+markers'))
