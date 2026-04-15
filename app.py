@@ -187,10 +187,10 @@ if st.session_state.cycles:
                         m_p, w_p = ("Bench", "OHP") if is_a else ("OHP", "Bench")
                         
                         days = [("Monday (Volume)", 0.90, ["Squat", m_p, "Deadlift"]),
-                                ("Wednesday (Light)", 0.70, ["Squat", w_p]),
+                                ("Wednesday (Light)", 0.80, ["Squat", w_p, "Chin-ups", "Back Extensions"]),
                                 ("Friday (Intensity)", 1.00, ["Squat", m_p, "Deadlift"])]
                         
-                        lift_emojis = {"Squat": "🏋️", "Bench": "💪", "OHP": "🥥", "Deadlift": "⛓️"}
+                        lift_emojis = {"Squat": "🏋️", "Bench": "💪", "OHP": "🥥", "Deadlift": "⛓️", "Chin-ups": "🐒", "Back Extensions": "🦒"}
 
                         for d_name, pct, moves in days:
                             d_key = f"cycle{t_idx}_w{w_i}_{d_name}"
@@ -200,42 +200,53 @@ if st.session_state.cycles:
                                 lift_cols = st.columns(len(moves))
                                 for m_idx, mv in enumerate(moves):
                                     with lift_cols[m_idx]:
-                                        c_rm = cycle['lifts'][mv]['rm'] + (cycle['lifts'][mv]['inc'] * counts[mv])
-                                        calc_w = round_to_plates(c_rm * pct, smallest_plate)
-                                        set_count = 5 if "Monday" in d_name else (2 if "Wednesday" in d_name else 1)
+                                        # Accessory movements logic
+                                        is_accessory = mv in ["Chin-ups", "Back Extensions"]
+                                        
+                                        if not is_accessory:
+                                            c_rm = cycle['lifts'][mv]['rm'] + (cycle['lifts'][mv]['inc'] * counts[mv])
+                                            calc_w = round_to_plates(c_rm * pct, smallest_plate)
+                                            set_count = 5 if "Monday" in d_name else (2 if "Wednesday" in d_name else 1)
                                         
                                         with st.container(border=True):
                                             st.markdown(f"**{lift_emojis.get(mv, '')} {mv}**")
-                                            st.markdown(f"#### {set_count}x5 @ {format_weight(calc_w)} {u}")
                                             
-                                            # Box checkboxes with strictly one-time timer execution
-                                            for s_i in range(set_count):
-                                                cb_key = f"ck_{t_idx}_{w_i}_{d_name}_{mv}_{s_i}"
-                                                prev_state_key = f"prev_{cb_key}"
+                                            if not is_accessory:
+                                                st.markdown(f"#### {set_count}x5 @ {format_weight(calc_w)} {u}")
                                                 
-                                                if prev_state_key not in st.session_state:
-                                                    st.session_state[prev_state_key] = False
+                                                for s_i in range(set_count):
+                                                    cb_key = f"ck_{t_idx}_{w_i}_{d_name}_{mv}_{s_i}"
+                                                    prev_state_key = f"prev_{cb_key}"
+                                                    if prev_state_key not in st.session_state: st.session_state[prev_state_key] = False
+                                                    
+                                                    current_state = st.checkbox(f"Set {s_i+1}", key=cb_key)
+                                                    
+                                                    if current_state and not st.session_state[prev_state_key]:
+                                                        st.session_state[prev_state_key] = True
+                                                        total_seconds = rest_choice * 60
+                                                        for s in range(total_seconds, -1, -1):
+                                                            m, sc = divmod(s, 60)
+                                                            timer_place.markdown(f'<p class="big-timer">{m:02d}:{sc:02d}</p>', unsafe_allow_html=True)
+                                                            time.sleep(1)
+                                                        st.components.v1.html("<script>window.parent.notifyEnd();</script>", height=0)
+                                                        timer_place.markdown('<p class="ready-text">READY! 🔥</p>', unsafe_allow_html=True)
+                                                    elif not current_state and st.session_state[prev_state_key]:
+                                                        st.session_state[prev_state_key] = False
                                                 
-                                                current_state = st.checkbox(f"Set {s_i+1}", key=cb_key)
-                                                
-                                                if current_state and not st.session_state[prev_state_key]:
-                                                    st.session_state[prev_state_key] = True
-                                                    total_seconds = rest_choice * 60
-                                                    for s in range(total_seconds, -1, -1):
-                                                        m, sc = divmod(s, 60)
-                                                        timer_place.markdown(f'<p class="big-timer">{m:02d}:{sc:02d}</p>', unsafe_allow_html=True)
-                                                        time.sleep(1)
-                                                    st.components.v1.html("<script>window.parent.notifyEnd();</script>", height=0)
-                                                    timer_place.markdown('<p class="ready-text">READY! 🔥</p>', unsafe_allow_html=True)
-                                                elif not current_state and st.session_state[prev_state_key]:
-                                                    st.session_state[prev_state_key] = False
-                                            
-                                            with st.expander("Warm-up"):
-                                                bar_w = 45 if u == "LBS" else 20
-                                                w_ps = [(f"Bar x 2x5", bar_w), (f"40% x 5", calc_w*0.4), (f"60% x 3", calc_w*0.6), (f"80% x 2", calc_w*0.8), (f"90% x 1", calc_w*0.9)]
-                                                for lbl, val in w_ps:
-                                                    fv = max(bar_w, round_to_plates(val, smallest_plate))
-                                                    st.write(f"• {lbl}: **{format_weight(fv)}**")
+                                                with st.expander("Warm-up"):
+                                                    bar_w = 45 if u == "LBS" else 20
+                                                    w_ps = [(f"Bar x 2x5", bar_w), (f"40% x 5", calc_w*0.4), (f"60% x 3", calc_w*0.6), (f"80% x 2", calc_w*0.8), (f"90% x 1", calc_w*0.9)]
+                                                    for lbl, val in w_ps:
+                                                        fv = max(bar_w, round_to_plates(val, smallest_plate))
+                                                        st.write(f"• {lbl}: **{format_weight(fv)}**")
+                                            else:
+                                                # Accessory specific UI (no timer, no checkbox system)
+                                                if mv == "Chin-ups":
+                                                    st.markdown("#### 3 Sets to Failure")
+                                                    st.write("Bodyweight or Weighted")
+                                                else:
+                                                    st.markdown("#### 3x10-15 Reps")
+                                                    st.write("Focus on contraction")
                                 
                                 st.divider()
                                 if "Friday" not in d_name:
