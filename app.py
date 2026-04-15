@@ -229,9 +229,10 @@ if st.session_state.cycles:
                         t_col1, t_col2 = st.columns([0.3, 0.7])
                         with t_col1: 
                             rest_choice = st.slider("⏱️ Rest (min)", 1, 10, 3, key=f"rs_{t_idx}_{w_i}")
-                            pause_btn = st.button("⏸️ Pause / ▶️ Resume", key=f"pause_{t_idx}_{w_i}", use_container_width=True)
-                            if pause_btn:
+                            pause_label = "▶️ Resume" if st.session_state.timer_paused else "⏸️ Pause"
+                            if st.button(pause_label, key=f"pause_{t_idx}_{w_i}", use_container_width=True):
                                 st.session_state.timer_paused = not st.session_state.timer_paused
+                                st.rerun()
                         with t_col2:
                             timer_place = st.empty()
                             timer_place.markdown('<p class="big-timer">00:00</p>', unsafe_allow_html=True)
@@ -294,30 +295,32 @@ if st.session_state.cycles:
                                                     
                                                     checked = st.checkbox(f"Set {s_i+1}", key=cb_key)
                                                     
+                                                    # S KUTUSU TIKLANDIĞINDA:
                                                     if checked and not st.session_state[prev_state_key]:
                                                         st.session_state[prev_state_key] = True
-                                                        st.session_state.timer_paused = False
-                                                        st.session_state[rem_key] = rest_choice * 60
-                                                        st.session_state.active_timer_id = cb_key # SETI AKTIF ET
+                                                        st.session_state[rem_key] = rest_choice * 60 # Süreyi sıfırla/başlat
+                                                        st.session_state.active_timer_id = cb_key # Bu seti aktif yap
+                                                        st.session_state.timer_paused = False # Duraklatmayı kaldır
+                                                        st.rerun() # Timer döngüsüne girmek için sayfayı yenile
                                                     
-                                                    # SADECE AKTIF OLAN SETIN TIMER'I CALISSIN
-                                                    if checked and st.session_state[rem_key] > 0 and st.session_state.active_timer_id == cb_key:
-                                                        if not st.session_state.timer_paused:
-                                                            while st.session_state[rem_key] >= 0:
+                                                    # AKTİF TIMER DÖNGÜSÜ
+                                                    if checked and st.session_state.active_timer_id == cb_key:
+                                                        if st.session_state[rem_key] > 0:
+                                                            if not st.session_state.timer_paused:
+                                                                while st.session_state[rem_key] > 0 and not st.session_state.timer_paused:
+                                                                    m, sc = divmod(st.session_state[rem_key], 60)
+                                                                    timer_place.markdown(f'<p class="big-timer">{m:02d}:{sc:02d}</p>', unsafe_allow_html=True)
+                                                                    time.sleep(1)
+                                                                    st.session_state[rem_key] -= 1
+                                                                    if st.session_state[rem_key] == 0:
+                                                                        st.components.v1.html("<script>window.parent.notifyEnd();</script>", height=0)
+                                                                        st.rerun() # "READY!" yazısı için rerun
+                                                            else:
+                                                                # PAUSE DURUMUNDA GÖRÜNTÜLEME
                                                                 m, sc = divmod(st.session_state[rem_key], 60)
-                                                                timer_place.markdown(f'<p class="big-timer">{m:02d}:{sc:02d}</p>', unsafe_allow_html=True)
-                                                                if st.session_state[rem_key] == 0:
-                                                                    break
-                                                                time.sleep(1)
-                                                                st.session_state[rem_key] -= 1
-                                                                
-                                                            if st.session_state[rem_key] == 0:
-                                                                st.components.v1.html("<script>window.parent.notifyEnd();</script>", height=0)
-                                                                timer_place.markdown('<p class="ready-text">READY! 🔥</p>', unsafe_allow_html=True)
-                                                                st.session_state[rem_key] = -1
-                                                        else:
-                                                            m, sc = divmod(st.session_state[rem_key], 60)
-                                                            timer_place.markdown(f'<p class="big-timer">{m:02d}:{sc:02d}</p>', unsafe_allow_html=True)
+                                                                timer_place.markdown(f'<p class="big-timer" style="color: #666 !important;">{m:02d}:{sc:02d}</p>', unsafe_allow_html=True)
+                                                        elif st.session_state[rem_key] <= 0:
+                                                            timer_place.markdown('<p class="ready-text">READY! 🔥</p>', unsafe_allow_html=True)
                                             else:
                                                 st.markdown("#### 3 Sets")
                                                 st.markdown("Bodyweight - Failure" if mv == "Chin-ups" else "10-15 Reps")
