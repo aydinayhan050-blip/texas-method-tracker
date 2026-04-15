@@ -236,7 +236,8 @@ if st.session_state.cycles:
                                     save_data(); st.rerun()
 
                                 if "Friday" in d_name:
-                                    st.subheader("🏆 Intensity Check")
+                                    st.subheader("🏆 Friday Checklist")
+                                    st.caption("ℹ️ *If you failed a lift, leave the box unchecked. This ensures the weight won't increase for that specific lift next week.*")
                                     cc = st.columns(len(moves))
                                     for mi, mv in enumerate(moves):
                                         with cc[mi]:
