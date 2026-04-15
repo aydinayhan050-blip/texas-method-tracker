@@ -81,8 +81,6 @@ with st.sidebar:
         st.session_state.cycles = []
         if os.path.exists(DB_FILE): os.remove(DB_FILE)
         st.rerun()
-    
-    st.markdown('<div style="text-align: right; color: gray; font-size: 0.7rem; margin-top: 5px;">By Aydın Ayhan</div>', unsafe_allow_html=True)
 
 st.markdown(f"<style>.stApp {{ background-color: {bg_color}; color: {text_color}; }}</style>", unsafe_allow_html=True)
 st.title("Texas Method Training Tracker")
@@ -203,7 +201,6 @@ if st.session_state.cycles:
                                             for s_i in range(set_count):
                                                 with set_grid[s_i]:
                                                     if st.checkbox(f"S{s_i+1}", key=f"chk_{true_idx}_{w_i}_{title}_{mv}_{s_i}"):
-                                                        # TRIGGER CENTRAL TIMER
                                                         total_sec = rest_choice * 60
                                                         for sec in range(total_sec, -1, -1):
                                                             timer_place.error(f"⏱️ REST: {sec//60:02d}:{sec%60:02d} - {mv} S{s_i+1} bitti!")
@@ -223,11 +220,20 @@ if st.session_state.cycles:
 
                                 if "Friday" in title:
                                     st.divider()
-                                    st.write("🏆 **Friday Crush Check:**")
+                                    st.subheader("🏆 Friday Crush Check")
+                                    st.caption("⚠️ **ÖNEMLİ:** Eğer bu hareketi başarıyla tamamlayamazsan (Fail), kutuyu boş bırak. Bu durumda haftaya ağırlık artışı olmayacaktır!")
+                                    
                                     check_cols = st.columns(len(moves))
                                     for m_idx, mv in enumerate(moves):
                                         with check_cols[m_idx]:
-                                            chk = st.checkbox(f"Crushed {mv}", value=cycle['success_log'][mv][w_i], key=f"chk_f_{true_idx}_{w_i}_{mv}")
+                                            is_success = cycle['success_log'][mv][w_i]
+                                            chk = st.checkbox(f"Crushed {mv}", value=is_success, key=f"chk_f_{true_idx}_{w_i}_{mv}")
+                                            
+                                            if chk:
+                                                st.success(f"🔥 {mv} Gelişiyor!")
+                                            else:
+                                                st.warning(f"❌ {mv} Fail (Ağırlık sabit)")
+                                                
                                             if chk != cycle['success_log'][mv][w_i]:
                                                 cycle['success_log'][mv][w_i] = chk
                                                 save_data()
