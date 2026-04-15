@@ -2,6 +2,21 @@ import streamlit as st
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from datetime import datetime
+import json
+import os
+
+# --- STORAGE FUNCTIONS ---
+DB_FILE = "texas_method_data.json"
+
+def save_data():
+    with open(DB_FILE, "w") as f:
+        json.dump(st.session_state.cycles, f)
+
+def load_data():
+    if os.path.exists(DB_FILE):
+        with open(DB_FILE, "r") as f:
+            return json.load(f)
+    return []
 
 # --- CORE FUNCTIONS ---
 def format_weight(weight):
@@ -31,8 +46,9 @@ def get_warmup_sets(target_weight, unit, plate_inc):
 # --- UI CONFIG ---
 st.set_page_config(page_title="Texas Method Tracker", layout="wide")
 
+# Veriyi dosyadan yükle
 if 'cycles' not in st.session_state:
-    st.session_state.cycles = []
+    st.session_state.cycles = load_data()
 if 'current_unit' not in st.session_state:
     st.session_state.current_unit = "LBS"
 
@@ -52,33 +68,29 @@ with st.sidebar:
                 cycle['lifts'][lift]['inc'] = convert_weight(cycle['lifts'][lift]['inc'], new_unit)
             cycle['weight_log'] = [convert_weight(w, new_unit) for w in cycle['weight_log']]
         st.session_state.current_unit = new_unit
+        save_data() # Kaydet
         st.rerun()
 
     plate = st.number_input(f"Plates ({new_unit})", value=2.5 if new_unit == "LBS" else 1.25, step=0.25)
     st.divider()
     if st.button("🔥 Wipe Everything", type="primary", use_container_width=True):
         st.session_state.cycles = []
+        if os.path.exists(DB_FILE):
+            os.remove(DB_FILE)
         st.rerun()
 
-# --- CUSTOM CSS (Hardcore Red Overrides) ---
+# --- CUSTOM CSS ---
 st.markdown(f"""
     <style>
-    /* Uygulama Arka Planı */
     .stApp {{ background-color: {bg_color}; color: {text_color}; }}
-    
-    /* EGZERSİZ KUTULARI - MAVİYİ TAMAMEN SİLİP KIRMIZI YAPIYORUZ */
     div[data-testid="stNotification"] {{
         background-color: #cc0000 !important;
         color: white !important;
         border: none !important;
     }}
-    
-    /* Kutuların içindeki ikonları da beyaz yapalım ki görünsün */
     div[data-testid="stNotification"] svg {{
         fill: white !important;
     }}
-    
-    /* Uyarı Kutusu (Üstteki) */
     .warning-box {{ 
         background-color: #000000; 
         padding: 15px; 
@@ -88,13 +100,10 @@ st.markdown(f"""
         text-align: center; 
         margin-bottom: 25px; 
     }}
-
-    /* Tab Başlıkları */
     .stTabs [data-baseweb="tab-list"] button[aria-selected="true"] {{
         color: #ff0000 !important;
         border-bottom-color: #ff0000 !important;
     }}
-
     .warmup-text {{ font-size: 0.85rem; color: #888; margin-bottom: 2px; }}
     .signature-footer {{ text-align: center; color: #555; font-size: 0.8rem; margin-top: 50px; padding-bottom: 20px; }}
     </style>
@@ -133,6 +142,7 @@ with st.expander("👊 New Cycle", expanded=len(st.session_state.cycles) == 0):
                         "OHP": {"rm": float(o_rm), "inc": float(o_inc)}, "Deadlift": {"rm": float(d_rm), "inc": float(d_inc)}
                     }
                 })
+                save_data() # Kaydet
                 st.rerun()
 
 # --- DISPLAY ---
@@ -156,6 +166,7 @@ if st.session_state.cycles:
                 if c1.button("Yes", key=f"yes_{true_idx}", use_container_width=True):
                     st.session_state.cycles.pop(true_idx)
                     del st.session_state[del_key]
+                    save_data() # Kaydet
                     st.rerun()
                 if c2.button("No", key=f"no_{true_idx}", use_container_width=True):
                     st.session_state[del_key] = False
@@ -171,6 +182,7 @@ if st.session_state.cycles:
                         new_bw = st.number_input(f"Weight", value=cycle['weight_log'][w_i], key=f"bw_{true_idx}_{w_i}", step=0.1, label_visibility="collapsed")
                         if new_bw != cycle['weight_log'][w_i]:
                             cycle['weight_log'][w_i] = new_bw
+                            save_data() # Kaydet
                             st.rerun()
                         
                         st.divider()
@@ -189,7 +201,6 @@ if st.session_state.cycles:
                                 for mv in moves:
                                     base_5rm = cycle['lifts'][mv]['rm'] + (cycle['lifts'][mv]['inc'] * counts[mv])
                                     work_weight = round_to_plates(base_5rm * pct, plate)
-                                    # BURASI KIRMIZI KUTU OLACAK KISIM:
                                     st.info(f"**{mv}**: {rep_scheme} @ **{format_weight(work_weight)} {new_unit}**")
                                     with st.expander("🔥 Warmup"):
                                         for line in get_warmup_sets(work_weight, new_unit, plate):
@@ -207,6 +218,7 @@ if st.session_state.cycles:
                                         val = cycle['success_log'][mv][w_i]
                                         if st.checkbox(f"Crushed {mv}?", value=val, key=f"s_{true_idx}_{w_i}_{mv}") != val:
                                             cycle['success_log'][mv][w_i] = not val
+                                            save_data() # Kaydet
                                             st.rerun()
 
             with tab2:
