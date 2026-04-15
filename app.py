@@ -29,36 +29,14 @@ def load_data():
             return cycles, unit
     return [], "KG"
 
-# --- CORE MATH ---
-def format_weight(weight):
-    val = round(float(weight), 2)
-    return f"{int(val)}" if val % 1 == 0 else f"{val}"
-
-def round_to_plates(weight, smallest_plate):
-    step = smallest_plate * 2
-    if step <= 0: return weight
-    return round(weight / step) * step
-
-def convert_weight(val, to_unit):
-    if to_unit == "LBS": return val * 2.20462
-    return val / 2.20462
-
 # --- UI CONFIG ---
 st.set_page_config(page_title="Texas Method Tracker", layout="wide")
 
 # THE ABSOLUTE ZERO-DIMMING CSS (TOTAL OVERRIDE)
 st.markdown("""
     <style>
-    /* 1. HIDE ALL STATUS WIDGETS (SPINNERS) */
     div[data-testid="stStatusWidget"] { display: none !important; }
-    
-    /* 2. FORCE FULL VISIBILITY ON EVERY ELEMENT ALWAYS */
-    * {
-        opacity: 1 !important;
-        filter: none !important;
-    }
-
-    /* 3. SPECIFICALLY KILL THE STALE STATE OVERLAY AND GREY-OUT */
+    * { opacity: 1 !important; filter: none !important; }
     div.stBlock[data-stale="true"], 
     div[data-testid="stAppViewBlockContainer"] [data-stale="true"],
     .element-container[data-stale="true"] {
@@ -66,14 +44,6 @@ st.markdown("""
         filter: none !important;
         pointer-events: auto !important;
     }
-
-    /* 4. PREVENT THE SEMI-TRANSPARENT LAYER OVER BUTTONS/CHECKBOXES */
-    button:disabled, input:disabled, .stCheckbox:disabled {
-        opacity: 1 !important;
-        cursor: pointer !important;
-    }
-
-    /* 5. GIANT TIMER STYLING */
     .big-timer {
         font-size: 110px !important;
         font-weight: 900;
@@ -96,6 +66,22 @@ if 'cycles' not in st.session_state:
     cycles, saved_unit = load_data()
     st.session_state.cycles = cycles
     st.session_state.current_unit = saved_unit
+
+# Timer Control State
+if 'run_timer' not in st.session_state: st.session_state.run_timer = False
+
+def format_weight(weight):
+    val = round(float(weight), 2)
+    return f"{int(val)}" if val % 1 == 0 else f"{val}"
+
+def round_to_plates(weight, smallest_plate):
+    step = smallest_plate * 2
+    if step <= 0: return weight
+    return round(weight / step) * step
+
+def convert_weight(val, to_unit):
+    if to_unit == "LBS": return val * 2.20462
+    return val / 2.20462
 
 # --- SIDEBAR ---
 with st.sidebar:
@@ -176,7 +162,7 @@ if st.session_state.cycles:
                 tabs = st.tabs([f"Week {i+1} {'✅' if cycle['week_completed_log'][i] else ''}" for i in range(cycle['weeks'])])
                 for w_i in range(cycle['weeks']):
                     with tabs[w_i]:
-                        # --- TIMER SECTION ---
+                        # TIMER
                         t_col1, t_col2 = st.columns([0.3, 0.7])
                         with t_col1: rest_choice = st.slider("⏱️ Rest (min)", 1, 10, 3, key=f"rs_{true_idx}_{w_i}")
                         with t_col2:
@@ -200,8 +186,9 @@ if st.session_state.cycles:
                         lift_emojis = {"Squat": "🏋️", "Bench": "💪", "OHP": "🥥", "Deadlift": "⛓️"}
 
                         for d_name, pct, moves in days:
-                            day_key = f"w{w_i}_{d_name}"
-                            is_day_done = cycle.get('day_completed_log', {}).get(day_key, False)
+                            day_id = f"w{w_i}_{d_name}"
+                            is_day_done = cycle.get('day_completed_log', {}).get(day_id, False)
+                            
                             with st.expander(f"### 📅 {d_name} {'✅' if is_day_done else ''}"):
                                 lift_cols = st.columns(len(moves))
                                 for m_idx, mv in enumerate(moves):
@@ -216,15 +203,19 @@ if st.session_state.cycles:
                                             for s_i in range(set_count):
                                                 with set_grid[s_i]:
                                                     if st.checkbox(f"S{s_i+1}", key=f"ck_{true_idx}_{w_i}_{d_name}_{mv}_{s_i}"):
+                                                        st.session_state.run_timer = True
                                                         ts = rest_choice * 60
                                                         for sec in range(ts, -1, -1):
+                                                            if not st.session_state.run_timer: break
                                                             mins, secs = divmod(sec, 60)
                                                             timer_text.markdown(f'<p class="big-timer">{mins:02d}:{secs:02d}</p>', unsafe_allow_html=True)
                                                             timer_bar.progress(sec / ts)
                                                             time.sleep(1)
-                                                        timer_text.markdown('<p class="ready-text">READY! 🔥</p>', unsafe_allow_html=True)
-                                                        timer_bar.empty()
-                                                        st.balloons()
+                                                        if st.session_state.run_timer:
+                                                            timer_text.markdown('<p class="ready-text">READY! 🔥</p>', unsafe_allow_html=True)
+                                                            timer_bar.empty()
+                                                            st.balloons()
+                                            
                                             with st.expander("Warm-up"):
                                                 bw_ = 45 if u == "LBS" else 20
                                                 w_ps = [(f"Bar x 2x5", bw_), (f"40% x 5", calc_w*0.4), (f"60% x 3", calc_w*0.6), (f"80% x 2", calc_w*0.8), (f"90% x 1", calc_w*0.9)]
@@ -236,8 +227,9 @@ if st.session_state.cycles:
                                     st.info("🦾 **Pullups**: 3 x Max | 🏹 **Back Extensions**: 5 x 10")
                                 
                                 st.divider()
-                                if st.button(f"Complete {d_name}", key=f"bt_{day_key}", use_container_width=True):
-                                    cycle['day_completed_log'][day_key] = True
+                                if st.button(f"Complete {d_name}", key=f"bt_{day_id}", use_container_width=True):
+                                    st.session_state.run_timer = False # Stop timer
+                                    cycle['day_completed_log'][day_id] = True
                                     save_data(); st.rerun()
 
                                 if "Friday" in d_name:
@@ -250,6 +242,7 @@ if st.session_state.cycles:
                                                 cycle['success_log'][mv][w_i] = chk
                                                 save_data()
                                     if st.button("✅ Log Entire Week", key=f"fw_{true_idx}_{w_i}", use_container_width=True, type="primary"):
+                                        st.session_state.run_timer = False # Stop timer
                                         cycle['week_completed_log'][w_i] = True
                                         save_data(); st.rerun()
 
