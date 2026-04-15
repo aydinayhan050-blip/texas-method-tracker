@@ -179,16 +179,16 @@ with st.expander("👊 Create New Cycle", expanded=len(st.session_state.cycles) 
         c_bw = st.number_input(f"⚖️ Initial BW ({u})", value=80.0 if u == "KG" else 180.0)
         st.write("---")
         col1, col2, col3, col4, col5 = st.columns(5)
-        with col1: s_rm, s_inc = st.text_input(f"🏋️ Squat 5RM", "100"), st.text_input(f"➕ Squat Inc", def_inc[0])
-        with col2: b_rm, b_inc = st.text_input(f"💪 Bench 5RM", "80"), st.text_input(f"➕ Bench Inc", def_inc[1])
-        with col3: o_rm, o_inc = st.text_input(f"🥥 OHP 5RM", "50"), st.text_input(f"➕ OHP Inc", def_inc[2])
-        with col4: d_rm, d_inc = st.text_input(f"🔥 Deadlift 5RM", "140"), st.text_input(f"➕ Deadlift Inc", def_inc[3])
+        with col1: s_rm, s_inc = st.text_input(f"🏋️ Squat 5RM ({u})", "100"), st.text_input(f"➕ Squat Inc ({u})", def_inc[0])
+        with col2: b_rm, b_inc = st.text_input(f"💪 Bench 5RM ({u})", "80"), st.text_input(f"➕ Bench Inc ({u})", def_inc[1])
+        with col3: o_rm, o_inc = st.text_input(f"🥥 OHP 5RM ({u})", "50"), st.text_input(f"➕ OHP Inc ({u})", def_inc[2])
+        with col4: d_rm, d_inc = st.text_input(f"🔥 Deadlift 5RM ({u})", "140"), st.text_input(f"➕ Deadlift Inc ({u})", def_inc[3])
         
         pc_rm, pc_inc = "60", def_inc[4]
         with col5: 
             if st.session_state.temp_variant == "Standard (Power Clean)":
-                pc_rm = st.text_input(f"⚡ Power Clean 3RM", "60")
-                pc_inc = st.text_input(f"➕ Power Clean Inc", def_inc[4])
+                pc_rm = st.text_input(f"⚡ Power Clean 3RM ({u})", "60")
+                pc_inc = st.text_input(f"➕ Power Clean Inc ({u})", def_inc[4])
             else:
                 st.write("Power Clean Disabled")
 
