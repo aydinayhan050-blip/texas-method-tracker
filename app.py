@@ -247,6 +247,7 @@ if st.session_state.cycles:
                                         st.success(f"✅ {d_name} Finished!")
                                 else:
                                     st.subheader("🏆 Friday Checklist")
+                                    st.caption("ℹ️ **How it works:** Check the lifts you successfully completed. Leave the ones you missed unchecked. This way, the weight for missed lifts won't increase next week, giving you another chance to crush them!")
                                     cc = st.columns(len(moves))
                                     for mi, mv in enumerate(moves):
                                         with cc[mi]:
