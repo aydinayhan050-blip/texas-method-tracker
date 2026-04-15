@@ -67,14 +67,14 @@ st.markdown("""
         font-size: 110px !important;
         font-weight: 900;
         text-align: center;
-        color: #FF4B4B;
+        color: #FF4B4B !important;
         margin: 0px;
         line-height: 1;
         font-family: 'Courier New', Courier, monospace;
     }
     .ready-text {
         font-size: 75px !important;
-        color: #28a745;
+        color: #28a745 !important;
         font-weight: 900;
         text-align: center;
     }
@@ -101,7 +101,9 @@ with st.sidebar:
     unit_index = 0 if st.session_state.current_unit == "LBS" else 1
     new_unit = st.radio("📏 Unit", ["LBS", "KG"], index=unit_index)
     theme_choice = st.selectbox("🎨 Theme", ["Deep Dark", "Light"])
+    
     bg_color = "#0e1117" if theme_choice == "Deep Dark" else "#ffffff"
+    text_color = "#ffffff" if theme_choice == "Deep Dark" else "#000000"
 
     if new_unit != st.session_state.current_unit:
         for cycle in st.session_state.cycles:
@@ -122,7 +124,23 @@ with st.sidebar:
     
     st.markdown("<div style='text-align: center; opacity: 0.5; font-size: 0.8em; margin-top: 10px;'>by Aydin Ayhan</div>", unsafe_allow_html=True)
 
-st.markdown(f"<style>.stApp {{ background-color: {bg_color}; }}</style>", unsafe_allow_html=True)
+# Theme CSS Injection (Kontrast hatası düzeltmesi)
+st.markdown(f"""
+    <style>
+    .stApp {{ background-color: {bg_color}; }}
+    [data-testid="stMarkdownContainer"] p, 
+    [data-testid="stMarkdownContainer"] h1, 
+    [data-testid="stMarkdownContainer"] h2, 
+    [data-testid="stMarkdownContainer"] h3, 
+    [data-testid="stMarkdownContainer"] h4, 
+    [data-testid="stMarkdownContainer"] h5, 
+    [data-testid="stMarkdownContainer"] h6,
+    label span {{
+        color: {text_color} !important;
+    }}
+    </style>
+""", unsafe_allow_html=True)
+
 st.title("Texas Method Training Tracker")
 
 # --- CREATE CYCLE ---
@@ -235,7 +253,6 @@ if st.session_state.cycles:
                                         is_accessory = mv in ["Chin-ups", "Back Extensions"]
                                         if not is_accessory:
                                             c_rm = cycle['lifts'][mv]['rm'] + (cycle['lifts'][mv]['inc'] * counts[mv])
-                                            # FIX: Power Clean should not be affected by the 90% volume day multiplier
                                             calc_w = round_to_plates(c_rm * (1.00 if mv == "Power Clean" else pct), smallest_plate)
                                             set_count = 3 if mv == "Power Clean" else (5 if "Monday" in d_name else (2 if "Wednesday" in d_name else 1))
                                             rep_count = 3 if mv == "Power Clean" else 5
@@ -275,7 +292,6 @@ if st.session_state.cycles:
                                                         st.session_state.timer_paused = False
                                                         st.session_state[rem_key] = rest_choice * 60
                                                     
-                                                    # FIX: Advanced timer logic that survives reruns / pauses properly
                                                     if checked and st.session_state[rem_key] > 0:
                                                         if not st.session_state.timer_paused:
                                                             while st.session_state[rem_key] >= 0:
@@ -296,34 +312,33 @@ if st.session_state.cycles:
 
                                             else:
                                                 st.markdown("#### 3 Sets")
-                                                # FIX: Bodyweight text added to Chin-ups
                                                 st.write("Bodyweight - Failure" if mv == "Chin-ups" else "10-15 Reps")
                                 
-                            st.divider()
-                            if "Friday" not in d_name:
-                                if "Monday" in d_name and cycle.get("variant") == "Standard (Power Clean)":
-                                    st.subheader("⚡ Power Clean Checklist")
-                                    st.caption("ℹ️ **How it works:** Check this if you successfully completed all sets of Power Clean today. Successful completion will increase the weight by your set increment next week.")
-                                    pc_key = f"pc_success_{t_idx}_{w_i}"
-                                    cycle['success_log']["Power Clean"][w_i] = st.checkbox("⚡ Crushed Power Clean", value=cycle['success_log']["Power Clean"][w_i], key=pc_key)
-                                    st.write("---")
-                                
-                                if not is_done and st.button(f"Mark {d_name} Finished", key=f"btn_v2_{d_key}", use_container_width=True):
-                                    cycle['day_completed_log'][d_key] = True; save_data(); st.rerun()
-                                elif is_done: st.success(f"✅ {d_name} Finished!")
-                                
-                            else:
-                                st.subheader("🏆 Friday Checklist")
-                                st.caption("ℹ️ **How it works:** Check the lifts you successfully completed. Leave the ones you missed unchecked. Successful lifts will increase by your set increment next week; missed lifts will stay at the same weight.")
-                                cc = st.columns(len(moves))
-                                for mi, mv in enumerate(moves):
-                                    with cc[mi]:
-                                        cb_key = f"success_chk_{t_idx}_{w_i}_{mv}"
-                                        cycle['success_log'][mv][w_i] = st.checkbox(f"Crushed {mv}", value=cycle['success_log'][mv][w_i], key=cb_key)
+                                st.divider()
+                                if "Friday" not in d_name:
+                                    if "Monday" in d_name and cycle.get("variant") == "Standard (Power Clean)":
+                                        st.subheader("⚡ Power Clean Checklist")
+                                        st.caption("ℹ️ **How it works:** Check this if you successfully completed all sets of Power Clean today. Successful completion will increase the weight by your set increment next week.")
+                                        pc_key = f"pc_success_{t_idx}_{w_i}"
+                                        cycle['success_log']["Power Clean"][w_i] = st.checkbox("⚡ Crushed Power Clean", value=cycle['success_log']["Power Clean"][w_i], key=pc_key)
+                                        st.write("---")
+                                    
+                                    if not is_done and st.button(f"Mark {d_name} Finished", key=f"btn_v2_{d_key}", use_container_width=True):
+                                        cycle['day_completed_log'][d_key] = True; save_data(); st.rerun()
+                                    elif is_done: st.success(f"✅ {d_name} Finished!")
+                                    
+                                else:
+                                    st.subheader("🏆 Friday Checklist")
+                                    st.caption("ℹ️ **How it works:** Check the lifts you successfully completed. Leave the ones you missed unchecked. Successful lifts will increase by your set increment next week; missed lifts will stay at the same weight.")
+                                    cc = st.columns(len(moves))
+                                    for mi, mv in enumerate(moves):
+                                        with cc[mi]:
+                                            cb_key = f"success_chk_{t_idx}_{w_i}_{mv}"
+                                            cycle['success_log'][mv][w_i] = st.checkbox(f"Crushed {mv}", value=cycle['success_log'][mv][w_i], key=cb_key)
 
-                                if not is_done and st.button("🏁 Finish & Log Week", key=f"final_btn_{t_idx}_{w_i}", use_container_width=True, type="primary"):
-                                    cycle['day_completed_log'][d_key] = True; cycle['week_completed_log'][w_i] = True; save_data(); st.rerun()
-                                elif is_done: st.success("🏆 Week Finished!")
+                                    if not is_done and st.button("🏁 Finish & Log Week", key=f"final_btn_{t_idx}_{w_i}", use_container_width=True, type="primary"):
+                                        cycle['day_completed_log'][d_key] = True; cycle['week_completed_log'][w_i] = True; save_data(); st.rerun()
+                                    elif is_done: st.success("🏆 Week Finished!")
 
             if st.session_state[p_key]:
                 st.divider()
